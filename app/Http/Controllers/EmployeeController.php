@@ -70,4 +70,23 @@ class EmployeeController extends Controller
             return response()->json(['error' => 'Terjadi kesalahan saat menambahkan vendor'], 500);
         }
     }
+
+    public function deleteVendor($id)
+    {
+    DB::beginTransaction();
+    
+    try {
+        $vendor = Vendor::findOrFail($id);
+        $vendor->delete();
+        
+        DB::commit();
+        
+        return response()->json([
+            'message' => 'Data vendor berhasil dihapus'
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => 'Terjadi kesalahan saat menghapus vendor'], 500);
+    }
+    }
 }
