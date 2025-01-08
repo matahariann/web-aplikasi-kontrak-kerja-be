@@ -32,6 +32,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Employee routes
     Route::get('/employee/authenticated', [EmployeeController::class, 'getAuthenticatedEmployee']);
+    Route::post('/addVendor', [EmployeeController::class, 'addVendor']);
 
     // Vendor routes
     Route::get('/vendors', [VendorController::class, 'index']);
