@@ -74,22 +74,38 @@ class EmployeeController extends Controller
         }
     }
 
-    public function deleteVendor($id)
+    public function updateVendor(Request $request, $id)
     {
+    $validator = Validator::make($request->all(), [
+        'nama_vendor' => 'required|string|unique:vendors,nama_vendor,'.$id,
+        'alamat_vendor' => 'required|string',
+        'nama_pj' => 'required|string',
+        'jabatan_pj' => 'required|string',
+        'npwp' => 'required|string|unique:vendors,npwp,'.$id,
+        'bank_vendor' => 'required|string',
+        'norek_vendor' => 'required|string|unique:vendors,norek_vendor,'.$id,
+        'nama_rek_vendor' => 'required|string',
+    ]);
+
+    if ($validator->fails()){
+        return response()->json($validator->errors(), 400);
+    }
+
     DB::beginTransaction();
-    
+
     try {
         $vendor = Vendor::findOrFail($id);
-        $vendor->delete();
+        $vendor->update($request->all());
         
         DB::commit();
         
         return response()->json([
-            'message' => 'Data vendor berhasil dihapus'
+            'message' => 'Data vendor berhasil diperbarui',
+            'data' => $vendor
         ]);
     } catch (\Exception $e) {
         DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat menghapus vendor'], 500);
+        return response()->json(['error' => 'Terjadi kesalahan saat memperbarui vendor'], 500);
     }
     }
 
