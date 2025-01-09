@@ -124,23 +124,26 @@ class EmployeeController extends Controller
         }
     }
 
-    public function deleteOfficial($id)
+    public function deleteOfficial($nip)
     {
-    DB::beginTransaction();
-    
-    try {
-        $official = Official::findOrFail($id);
-        $official->delete();
+        DB::beginTransaction();
         
-        DB::commit();
-        
-        return response()->json([
-            'message' => 'Data pejabat berhasil dihapus'
-        ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat menghapus pejabat'], 500);
-    }
+        try {
+            $official = Official::findOrFail($nip); // Menggunakan NIP sebagai primary key
+            $official->delete();
+            
+            DB::commit();
+            
+            return response()->json([
+                'message' => 'Data pejabat berhasil dihapus'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menghapus pejabat',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function addDocument(Request $request)
