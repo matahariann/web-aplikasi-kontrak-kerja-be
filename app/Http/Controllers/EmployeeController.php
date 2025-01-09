@@ -162,6 +162,36 @@ class EmployeeController extends Controller
         }
     }
 
+    public function updateOfficial(Request $request, $nip)
+    {
+    $validator = Validator::make($request->all(), [
+        'nama' => 'required|string',
+        'jabatan' => 'required|string|unique:officials,jabatan,'.$nip.',nip',
+        'periode_jabatan' => 'required|string',
+    ]);
+
+    if ($validator->fails()){
+        return response()->json($validator->errors(), 400);
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $official = Official::findOrFail($nip);
+        $official->update($request->all());
+        
+        DB::commit();
+        
+        return response()->json([
+            'message' => 'Data pejabat berhasil diperbarui',
+            'data' => $official
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => 'Terjadi kesalahan saat memperbarui pejabat'], 500);
+    }
+    }
+
     public function addDocument(Request $request)
     {
         $validator = Validator::make($request->all(), [
