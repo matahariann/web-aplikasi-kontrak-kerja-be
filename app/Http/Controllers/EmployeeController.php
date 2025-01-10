@@ -341,6 +341,16 @@ class EmployeeController extends Controller
             // Check if nomor_kontrak is being updated
             $newNomorKontrak = $requestData['nomor_kontrak'];
             if ($nomor_kontrak !== $newNomorKontrak) {
+                // Update related records in documents_officials table first
+                DB::table('documents_officials')
+                    ->where('nomor_kontrak', $nomor_kontrak)
+                    ->update(['nomor_kontrak' => $newNomorKontrak]);
+    
+                // Update related records in contracts table if it exists
+                DB::table('contracts')
+                    ->where('nomor_kontrak', $nomor_kontrak)
+                    ->update(['nomor_kontrak' => $newNomorKontrak]);
+    
                 // Create a new record with the new nomor_kontrak
                 $newDocument = $document->replicate();
                 $newDocument->nomor_kontrak = $newNomorKontrak;
@@ -364,7 +374,11 @@ class EmployeeController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Terjadi kesalahan saat memperbarui dokumen'], 500);
+            Log::error('Error updating document: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memperbarui dokumen',
+                'detail' => $e->getMessage()
+            ], 500);
         }
     }
     public function addContract(Request $request)
