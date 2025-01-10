@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Contract;
 use App\Models\Document;
+use App\Models\DocumentOfficial;
 use App\Models\Official;
 use App\Models\User;
 use App\Models\Vendor;
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule as ValidationRule;
 
 class EmployeeController extends Controller
 {
@@ -141,27 +144,62 @@ class EmployeeController extends Controller
         }
     }
 
-    public function deleteOfficial($nip)
-    {
-        DB::beginTransaction();
-        
-        try {
-            $official = Official::findOrFail($nip); // Menggunakan NIP sebagai primary key
-            $official->delete();
+    // public function updateOfficial(Request $request, $nip)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip',
+    //         'nama' => 'required|string',
+    //         'jabatan' => 'required|string',
+    //         'periode_jabatan' => 'required|string',
+    //     ]);
+    
+    //     if ($validator->fails()) {
+    //         return response()->json($validator->errors(), 400);
+    //     }
+    
+    //     DB::beginTransaction();
+    
+    //     try {
+    //         $official = Official::findOrFail($nip);
             
-            DB::commit();
+    //         // Check if NIP is being updated
+    //         $newNip = $request->nip;
+    //         if ($nip !== $newNip) {
+    //             // Update related records in document_official table first
+    //             DB::table('documents_officials')
+    //                 ->where('nip', $nip)
+    //                 ->update(['nip' => $newNip]);
+    
+    //             // Create a new record with the new NIP
+    //             $newOfficial = $official->replicate();
+    //             $newOfficial->nip = $newNip;
+    //             $newOfficial->fill($request->all());
+    //             $newOfficial->save();
+                
+    //             // Delete the old record
+    //             $official->delete();
+                
+    //             $official = $newOfficial;
+    //         } else {
+    //             // Update existing record if NIP hasn't changed
+    //             $official->update($request->all());
+    //         }
             
-            return response()->json([
-                'message' => 'Data pejabat berhasil dihapus'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'error' => 'Terjadi kesalahan saat menghapus pejabat',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
+    //         DB::commit();
+            
+    //         return response()->json([
+    //             'message' => 'Data pejabat berhasil diperbarui',
+    //             'data' => $official
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Error updating official: ' . $e->getMessage());
+    //         return response()->json([
+    //             'error' => 'Terjadi kesalahan saat memperbarui pejabat',
+    //             'detail' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 
     public function updateOfficial(Request $request, $nip)
     {
@@ -180,36 +218,37 @@ class EmployeeController extends Controller
     
         try {
             $official = Official::findOrFail($nip);
-            
-            // Check if NIP is being updated
             $newNip = $request->nip;
+    
             if ($nip !== $newNip) {
-                // Update related records in document_official table first
-                DB::table('documents_officials')
-                    ->where('nip', $nip)
+                // 1. Buat record baru dengan NIP baru
+                $newOfficial = new Official();
+                $newOfficial->nip = $newNip;
+                $newOfficial->nama = $request->nama;
+                $newOfficial->jabatan = $request->jabatan;
+                $newOfficial->periode_jabatan = $request->periode_jabatan;
+                $newOfficial->save();
+    
+                // 2. Update records di documents_officials dengan NIP baru
+                DocumentOfficial::where('nip', $nip)
                     ->update(['nip' => $newNip]);
     
-                // Create a new record with the new NIP
-                $newOfficial = $official->replicate();
-                $newOfficial->nip = $newNip;
-                $newOfficial->fill($request->all());
-                $newOfficial->save();
-                
-                // Delete the old record
+                // 3. Hapus record lama
                 $official->delete();
                 
                 $official = $newOfficial;
             } else {
-                // Update existing record if NIP hasn't changed
+                // Update data lainnya jika NIP tidak berubah
                 $official->update($request->all());
             }
-            
+    
             DB::commit();
-            
+    
             return response()->json([
                 'message' => 'Data pejabat berhasil diperbarui',
                 'data' => $official
             ]);
+    
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error updating official: ' . $e->getMessage());
@@ -432,5 +471,205 @@ class EmployeeController extends Controller
         DB::rollBack();
         return response()->json(['error' => 'Terjadi kesalahan saat menghapus kontrak'], 500);
     }
+    }
+
+    public function saveDocumentWithOfficials(Request $request)
+    {
+        // Modify validation rules to match nested document structure
+        $validator = Validator::make($request->all(), [
+            'officials' => 'required|array|min:1',
+            'officials.*.nip' => 'required|string|exists:officials,nip',
+            'document.nomor_kontrak' => 'required|string|unique:documents,nomor_kontrak',
+            'document.tanggal_kontrak' => 'required|date',
+            'document.paket_pekerjaan' => 'required|string',
+            'document.tahun_anggaran' => 'required|string',
+            'document.nomor_pp' => 'required|string',
+            'document.tanggal_pp' => 'required|date',
+            'document.nomor_hps' => 'required|string',
+            'document.tanggal_hps' => 'required|date',
+            'document.tanggal_mulai' => 'required|date',
+            'document.tanggal_selesai' => 'required|date',
+            'document.nomor_pph1' => 'required|string',
+            'document.tanggal_pph1' => 'required|date',
+            'document.nomor_pph2' => 'required|string',
+            'document.tanggal_pph2' => 'required|date',
+            'document.nomor_ukn' => 'required|string',
+            'document.tanggal_ukn' => 'required|date',
+            'document.tanggal_undangan_ukn' => 'required|date',
+            'document.nomor_ba_ekn' => 'required|string',
+            'document.nomor_pppb' => 'required|string',
+            'document.tanggal_pppb' => 'required|date',
+            'document.nomor_lppb' => 'required|string',
+            'document.tanggal_lppb' => 'required|date',
+            'document.nomor_ba_stp' => 'required|string',
+            'document.nomor_ba_pem' => 'required|string',
+            'document.nomor_dipa' => 'required|string',
+            'document.tanggal_dipa' => 'required|date',
+            'document.kode_kegiatan' => 'required|string',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            // Get latest vendor
+            $latestVendor = Vendor::latest('id')->first();
+            if (!$latestVendor) {
+                throw new \Exception('Tidak ada vendor yang tersedia');
+            }
+    
+            // Add vendor ID to document data
+            $documentData = array_merge($request->input('document'), [
+                'id_vendor' => $latestVendor->id
+            ]);
+    
+            // Create document
+            $document = Document::create($documentData);
+    
+            // Create document-official relationships
+            foreach ($request->input('officials') as $officialData) {
+                DocumentOfficial::create([
+                    'nip' => $officialData['nip'],
+                    'nomor_kontrak' => $document->nomor_kontrak
+                ]);
+            }
+    
+            DB::commit();
+    
+            return response()->json([
+                'message' => 'Data dokumen dan pejabat berhasil disimpan',
+                'data' => [
+                    'document' => $document,
+                    'officials' => $request->input('officials')
+                ]
+            ], 201);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error saving document with officials: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menyimpan data',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateDocumentWithOfficials(Request $request, $nomor_kontrak)
+    {
+        $validator = Validator::make($request->all(), [
+            'officials' => 'required|array|min:1',
+            'officials.*.nip' => 'required|string|exists:officials,nip',
+            'document.nomor_kontrak' => [
+                'required',
+                'string',
+                \Illuminate\Validation\Rule::unique('documents', 'nomor_kontrak')->ignore($nomor_kontrak, 'nomor_kontrak')
+            ],
+            'document.tanggal_kontrak' => 'required|date',
+            'document.paket_pekerjaan' => 'required|string',
+            'document.tahun_anggaran' => 'required|string',
+            'document.nomor_pp' => 'required|string',
+            'document.tanggal_pp' => 'required|date',
+            'document.nomor_hps' => 'required|string',
+            'document.tanggal_hps' => 'required|date',
+            'document.tanggal_mulai' => 'required|date',
+            'document.tanggal_selesai' => 'required|date',
+            'document.nomor_pph1' => 'required|string',
+            'document.tanggal_pph1' => 'required|date',
+            'document.nomor_pph2' => 'required|string',
+            'document.tanggal_pph2' => 'required|date',
+            'document.nomor_ukn' => 'required|string',
+            'document.tanggal_ukn' => 'required|date',
+            'document.tanggal_undangan_ukn' => 'required|date',
+            'document.nomor_ba_ekn' => 'required|string',
+            'document.nomor_pppb' => 'required|string',
+            'document.tanggal_pppb' => 'required|date',
+            'document.nomor_lppb' => 'required|string',
+            'document.tanggal_lppb' => 'required|date',
+            'document.nomor_ba_stp' => 'required|string',
+            'document.nomor_ba_pem' => 'required|string',
+            'document.nomor_dipa' => 'required|string',
+            'document.tanggal_dipa' => 'required|date',
+            'document.kode_kegiatan' => 'required|string',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            $document = Document::findOrFail($nomor_kontrak);
+            $latestVendor = Vendor::latest('id')->first();
+            
+            if (!$latestVendor) {
+                throw new \Exception('Tidak ada vendor yang tersedia');
+            }
+    
+            $documentData = array_merge($request->input('document'), [
+                'id_vendor' => $latestVendor->id
+            ]);
+    
+            // Check if nomor_kontrak is being changed
+            $newNomorKontrak = $documentData['nomor_kontrak'];
+            
+            if ($nomor_kontrak !== $newNomorKontrak) {
+                // 1. Backup existing officials
+                $existingOfficials = DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)->get();
+                
+                // 2. Delete existing officials (this is safe due to transaction)
+                DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)->delete();
+                
+                // 3. Create new document with new nomor_kontrak
+                $newDocument = Document::create($documentData);
+                
+                // 4. Create new officials with new nomor_kontrak
+                foreach ($request->input('officials') as $officialData) {
+                    DocumentOfficial::create([
+                        'nip' => $officialData['nip'],
+                        'nomor_kontrak' => $newNomorKontrak
+                    ]);
+                }
+                
+                // 5. Delete old document
+                $document->delete();
+                
+                $document = $newDocument;
+            } else {
+                // If nomor_kontrak is not changed, just update normally
+                $document->update($documentData);
+                
+                // Update officials
+                DocumentOfficial::where('nomor_kontrak', $document->nomor_kontrak)->delete();
+                
+                foreach ($request->input('officials') as $officialData) {
+                    DocumentOfficial::create([
+                        'nip' => $officialData['nip'],
+                        'nomor_kontrak' => $document->nomor_kontrak
+                    ]);
+                }
+            }
+    
+            DB::commit();
+    
+            return response()->json([
+                'message' => 'Data dokumen dan pejabat berhasil diperbarui',
+                'data' => [
+                    'document' => $document,
+                    'officials' => $request->input('officials')
+                ]
+            ]);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating document with officials: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memperbarui data',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
     }
 }
