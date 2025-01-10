@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('officials', function (Blueprint $table) {
             $table->string('nip')->primary();
             $table->string('nama');
-            $table->string('jabatan')->unique();
+            $table->string('jabatan');
             $table->string('periode_jabatan');
             $table->timestamps();
         });

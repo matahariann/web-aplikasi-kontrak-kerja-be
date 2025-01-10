@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class EmployeeController extends Controller
 {
@@ -164,37 +165,74 @@ class EmployeeController extends Controller
 
     public function updateOfficial(Request $request, $nip)
     {
-    $validator = Validator::make($request->all(), [
-        'nama' => 'required|string',
-        'jabatan' => 'required|string|unique:officials,jabatan,'.$nip.',nip',
-        'periode_jabatan' => 'required|string',
-    ]);
-
-    if ($validator->fails()){
-        return response()->json($validator->errors(), 400);
-    }
-
-    DB::beginTransaction();
-
-    try {
-        $official = Official::findOrFail($nip);
-        $official->update($request->all());
-        
-        DB::commit();
-        
-        return response()->json([
-            'message' => 'Data pejabat berhasil diperbarui',
-            'data' => $official
+        $validator = Validator::make($request->all(), [
+            'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip',
+            'nama' => 'required|string',
+            'jabatan' => 'required|string',
+            'periode_jabatan' => 'required|string',
         ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat memperbarui pejabat'], 500);
-    }
+    
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            $official = Official::findOrFail($nip);
+            
+            // Check if NIP is being updated
+            $newNip = $request->nip;
+            if ($nip !== $newNip) {
+                // Update related records in document_official table first
+                DB::table('documents_officials')
+                    ->where('nip', $nip)
+                    ->update(['nip' => $newNip]);
+    
+                // Create a new record with the new NIP
+                $newOfficial = $official->replicate();
+                $newOfficial->nip = $newNip;
+                $newOfficial->fill($request->all());
+                $newOfficial->save();
+                
+                // Delete the old record
+                $official->delete();
+                
+                $official = $newOfficial;
+            } else {
+                // Update existing record if NIP hasn't changed
+                $official->update($request->all());
+            }
+            
+            DB::commit();
+            
+            return response()->json([
+                'message' => 'Data pejabat berhasil diperbarui',
+                'data' => $official
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating official: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memperbarui pejabat',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function addDocument(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        // Get the latest vendor ID
+        $latestVendor = Vendor::latest('id')->first();
+        
+        if (!$latestVendor) {
+            return response()->json(['error' => 'Tidak ada vendor yang tersedia'], 400);
+        }
+    
+        // Merge the vendor ID into the request data
+        $requestData = array_merge($request->all(), ['id_vendor' => $latestVendor->id]);
+    
+        $validator = Validator::make($requestData, [
             'nomor_kontrak' => 'required|string|unique:documents',
             'tanggal_kontrak' => 'required|date',
             'paket_pekerjaan' => 'required|string',
@@ -224,18 +262,18 @@ class EmployeeController extends Controller
             'kode_kegiatan' => 'required|string',
             'id_vendor' => 'required|exists:vendors,id',
         ]);
-
+    
         if ($validator->fails()){
             return response()->json($validator->errors(), 400);
         }
-
+    
         DB::beginTransaction();
-
+    
         try{
-            $document = Document::create($request->all());
+            $document = Document::create($requestData);
             
             DB::commit();
-
+    
             return response()->json([
                 'message' => 'Data document berhasil disimpan',
                 'data' => $document
@@ -247,25 +285,88 @@ class EmployeeController extends Controller
         }
     }
 
-    public function deleteDocument($id)
+    public function updateDocument(Request $request, $nomor_kontrak)
     {
-    DB::beginTransaction();
+        // Get the latest vendor ID
+        $latestVendor = Vendor::latest('id')->first();
+        
+        if (!$latestVendor) {
+            return response()->json(['error' => 'Tidak ada vendor yang tersedia'], 400);
+        }
     
-    try {
-        $document = Document::findOrFail($id);
-        $document->delete();
-        
-        DB::commit();
-        
-        return response()->json([
-            'message' => 'Data dokumen berhasil dihapus'
+        // Merge the vendor ID into the request data
+        $requestData = array_merge($request->all(), ['id_vendor' => $latestVendor->id]);
+    
+        // Add nomor_kontrak to validation rules
+        $validator = Validator::make($requestData, [
+            'nomor_kontrak' => 'required|string|unique:documents,nomor_kontrak,' . $nomor_kontrak . ',nomor_kontrak',
+            'tanggal_kontrak' => 'required|date',
+            'paket_pekerjaan' => 'required|string',
+            'tahun_anggaran' => 'required|string',
+            'nomor_pp' => 'required|string',
+            'tanggal_pp' => 'required|date',
+            'nomor_hps' => 'required|string',
+            'tanggal_hps' => 'required|date',
+            'tanggal_mulai' => 'required|date',
+            'tanggal_selesai' => 'required|date',
+            'nomor_pph1' => 'required|string',
+            'tanggal_pph1' => 'required|date',
+            'nomor_pph2' => 'required|string',
+            'tanggal_pph2' => 'required|date',
+            'nomor_ukn' => 'required|string',
+            'tanggal_ukn' => 'required|date',
+            'tanggal_undangan_ukn' => 'required|date',
+            'nomor_ba_ekn' => 'required|string',
+            'nomor_pppb' => 'required|string',
+            'tanggal_pppb' => 'required|date',
+            'nomor_lppb' => 'required|string',
+            'tanggal_lppb' => 'required|date',
+            'nomor_ba_stp' => 'required|string',
+            'nomor_ba_pem' => 'required|string',
+            'nomor_dipa' => 'required|string',
+            'tanggal_dipa' => 'required|date',
+            'kode_kegiatan' => 'required|string',
+            'id_vendor' => 'required|exists:vendors,id',
         ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat menghapus dokumen'], 500);
+    
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            $document = Document::findOrFail($nomor_kontrak);
+            
+            // Check if nomor_kontrak is being updated
+            $newNomorKontrak = $requestData['nomor_kontrak'];
+            if ($nomor_kontrak !== $newNomorKontrak) {
+                // Create a new record with the new nomor_kontrak
+                $newDocument = $document->replicate();
+                $newDocument->nomor_kontrak = $newNomorKontrak;
+                $newDocument->fill($requestData);
+                $newDocument->save();
+                
+                // Delete the old record
+                $document->delete();
+                
+                $document = $newDocument;
+            } else {
+                // Update existing record if nomor_kontrak hasn't changed
+                $document->update($requestData);
+            }
+            
+            DB::commit();
+            
+            return response()->json([
+                'message' => 'Data dokumen berhasil diperbarui',
+                'data' => $document
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Terjadi kesalahan saat memperbarui dokumen'], 500);
+        }
     }
-    }
-
     public function addContract(Request $request)
     {
         $validator = Validator::make($request->all(), [
