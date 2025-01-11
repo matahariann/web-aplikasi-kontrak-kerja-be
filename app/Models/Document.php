@@ -46,7 +46,7 @@ class Document extends Model
 
     protected $guarded = [];
 
-    public function contract()
+    public function contracts()
     {
         return $this->hasMany(Contract::class, 'nomor_kontrak', 'nomor_kontrak');
     }

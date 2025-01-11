@@ -610,33 +610,26 @@ class EmployeeController extends Controller
             if (!$latestVendor) {
                 throw new \Exception('Tidak ada vendor yang tersedia');
             }
-    
+
             $documentData = array_merge($request->input('document'), [
                 'id_vendor' => $latestVendor->id
             ]);
-    
-            // Check if nomor_kontrak is being changed
+
             $newNomorKontrak = $documentData['nomor_kontrak'];
             
             if ($nomor_kontrak !== $newNomorKontrak) {
-                // 1. Backup existing officials
-                $existingOfficials = DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)->get();
-                
-                // 2. Delete existing officials (this is safe due to transaction)
-                DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)->delete();
-                
-                // 3. Create new document with new nomor_kontrak
+                // 1. Create new document first
                 $newDocument = Document::create($documentData);
+
+                // 2. Update existing contracts to reference new document
+                Contract::where('nomor_kontrak', $nomor_kontrak)
+                    ->update(['nomor_kontrak' => $newNomorKontrak]);
+
+                // 3. Update document officials
+                DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)
+                    ->update(['nomor_kontrak' => $newNomorKontrak]);
                 
-                // 4. Create new officials with new nomor_kontrak
-                foreach ($request->input('officials') as $officialData) {
-                    DocumentOfficial::create([
-                        'nip' => $officialData['nip'],
-                        'nomor_kontrak' => $newNomorKontrak
-                    ]);
-                }
-                
-                // 5. Delete old document
+                // 4. Delete old document (this will cascade properly now)
                 $document->delete();
                 
                 $document = $newDocument;
@@ -654,9 +647,13 @@ class EmployeeController extends Controller
                     ]);
                 }
             }
-    
+
             DB::commit();
-    
+
+            // Refresh the document with its relationships
+            $document = Document::with(['vendor', 'contracts', 'documentOfficial'])
+                ->find($newNomorKontrak);
+
             return response()->json([
                 'message' => 'Data dokumen dan pejabat berhasil diperbarui',
                 'data' => [
@@ -664,7 +661,7 @@ class EmployeeController extends Controller
                     'officials' => $request->input('officials')
                 ]
             ]);
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error updating document with officials: ' . $e->getMessage());
