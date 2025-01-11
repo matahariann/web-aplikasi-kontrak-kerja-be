@@ -144,63 +144,6 @@ class EmployeeController extends Controller
         }
     }
 
-    // public function updateOfficial(Request $request, $nip)
-    // {
-    //     $validator = Validator::make($request->all(), [
-    //         'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip',
-    //         'nama' => 'required|string',
-    //         'jabatan' => 'required|string',
-    //         'periode_jabatan' => 'required|string',
-    //     ]);
-    
-    //     if ($validator->fails()) {
-    //         return response()->json($validator->errors(), 400);
-    //     }
-    
-    //     DB::beginTransaction();
-    
-    //     try {
-    //         $official = Official::findOrFail($nip);
-            
-    //         // Check if NIP is being updated
-    //         $newNip = $request->nip;
-    //         if ($nip !== $newNip) {
-    //             // Update related records in document_official table first
-    //             DB::table('documents_officials')
-    //                 ->where('nip', $nip)
-    //                 ->update(['nip' => $newNip]);
-    
-    //             // Create a new record with the new NIP
-    //             $newOfficial = $official->replicate();
-    //             $newOfficial->nip = $newNip;
-    //             $newOfficial->fill($request->all());
-    //             $newOfficial->save();
-                
-    //             // Delete the old record
-    //             $official->delete();
-                
-    //             $official = $newOfficial;
-    //         } else {
-    //             // Update existing record if NIP hasn't changed
-    //             $official->update($request->all());
-    //         }
-            
-    //         DB::commit();
-            
-    //         return response()->json([
-    //             'message' => 'Data pejabat berhasil diperbarui',
-    //             'data' => $official
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Error updating official: ' . $e->getMessage());
-    //         return response()->json([
-    //             'error' => 'Terjadi kesalahan saat memperbarui pejabat',
-    //             'detail' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function updateOfficial(Request $request, $nip)
     {
         $validator = Validator::make($request->all(), [
@@ -422,8 +365,14 @@ class EmployeeController extends Controller
     }
     public function addContract(Request $request)
     {
+        // Ambil nomor kontrak terakhir dari tabel documents
+        $lastDocument = Document::orderBy('created_at', 'desc')->first();
+        
+        if (!$lastDocument) {
+            return response()->json(['error' => 'Tidak ada dokumen yang tersedia'], 404);
+        }
+    
         $validator = Validator::make($request->all(), [
-            'nomor_kontrak' => 'required|string|exists:documents,nomor_kontrak',
             'jenis_kontrak' => 'required|string',
             'deskripsi' => 'required|string',
             'jumlah_orang' => 'required|integer',
@@ -431,46 +380,99 @@ class EmployeeController extends Controller
             'nilai_kontral_awal' => 'required|numeric',
             'nilai_kontrak_akhir' => 'required|numeric',
         ]);
-
+    
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-
+    
         DB::beginTransaction();
-
-        try{
-            $contract = Contract::create($request->all());
+    
+        try {
+            // Tambahkan nomor kontrak dari dokumen terakhir ke data request
+            $contractData = $request->all();
+            $contractData['nomor_kontrak'] = $lastDocument->nomor_kontrak;
+    
+            $contract = Contract::create($contractData);
             
             DB::commit();
-
+    
             return response()->json([
                 'message' => 'Data kontrak berhasil disimpan',
                 'data' => $contract
             ], 201);
         } catch (\Exception $e) {
-            // Rollback transaksi jika terjadi kesalahan
             DB::rollBack();
             return response()->json(['error' => 'Terjadi kesalahan saat menambahkan kontrak'], 500);
         }
     }
 
-    public function deleteContract($id)
+    public function updateContract(Request $request, $id)
     {
-    DB::beginTransaction();
-    
-    try {
-        $contract = Contract::findOrFail($id);
-        $contract->delete();
-        
-        DB::commit();
-        
-        return response()->json([
-            'message' => 'Data kontrak berhasil dihapus'
+        $validator = Validator::make($request->all(), [
+            'jenis_kontrak' => 'required|string',
+            'deskripsi' => 'required|string',
+            'jumlah_orang' => 'required|integer',
+            'durasi_kontrak' => 'required|integer',
+            'nilai_kontral_awal' => 'required|numeric',
+            'nilai_kontrak_akhir' => 'required|numeric',
         ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat menghapus kontrak'], 500);
-    }
+    
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            $contract = Contract::findOrFail($id);
+            $oldNomorKontrak = $contract->nomor_kontrak;
+    
+            // Cek apakah ada permintaan untuk mengubah nomor kontrak
+            if ($request->has('nomor_kontrak') && $request->nomor_kontrak !== $oldNomorKontrak) {
+                // Validasi nomor kontrak baru
+                $newNomorKontrak = $request->nomor_kontrak;
+                $documentExists = Document::where('nomor_kontrak', $newNomorKontrak)->exists();
+                
+                if (!$documentExists) {
+                    DB::rollBack();
+                    return response()->json(['error' => 'Nomor kontrak tidak ditemukan dalam dokumen'], 404);
+                }
+    
+                // Buat record baru dengan nomor kontrak baru
+                $newContract = new Contract();
+                $newContract->nomor_kontrak = $newNomorKontrak;
+                $newContract->jenis_kontrak = $request->jenis_kontrak;
+                $newContract->deskripsi = $request->deskripsi;
+                $newContract->jumlah_orang = $request->jumlah_orang;
+                $newContract->durasi_kontrak = $request->durasi_kontrak;
+                $newContract->nilai_kontral_awal = $request->nilai_kontral_awal;
+                $newContract->nilai_kontrak_akhir = $request->nilai_kontrak_akhir;
+                $newContract->save();
+    
+                // Hapus record lama
+                $contract->delete();
+                
+                $contract = $newContract;
+            } else {
+                // Update data lainnya jika nomor kontrak tidak berubah
+                $contract->update($request->except('nomor_kontrak'));
+            }
+    
+            DB::commit();
+    
+            return response()->json([
+                'message' => 'Data kontrak berhasil diperbarui',
+                'data' => $contract
+            ]);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating contract: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memperbarui kontrak',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function saveDocumentWithOfficials(Request $request)
