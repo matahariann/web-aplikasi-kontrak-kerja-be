@@ -10,6 +10,7 @@ use App\Models\Official;
 use App\Models\User;
 use App\Models\Vendor;
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -474,6 +475,38 @@ class EmployeeController extends Controller
                 'detail' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function deleteContract($id)
+    {
+    DB::beginTransaction();
+
+    try {
+        $contract = Contract::findOrFail($id);
+        
+        // Hapus kontrak
+        $contract->delete();
+        
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Data kontrak berhasil dihapus',
+            'data' => $contract
+        ]);
+
+    } catch (ModelNotFoundException $e) {
+        DB::rollBack();
+        return response()->json([
+            'error' => 'Kontrak tidak ditemukan'
+        ], 404);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error deleting contract: ' . $e->getMessage());
+        return response()->json([
+            'error' => 'Terjadi kesalahan saat menghapus kontrak',
+            'detail' => $e->getMessage()
+        ], 500);
+    }
     }
 
     public function saveDocumentWithOfficials(Request $request)

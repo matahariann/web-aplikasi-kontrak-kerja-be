@@ -40,6 +40,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/updateDocument/{id}', [EmployeeController::class, 'updateDocument']);
     Route::post('/addContract', [EmployeeController::class, 'addContract']);
     Route::put('/updateContract/{id}', [EmployeeController::class, 'updateContract']);
+    Route::delete('/deleteContract/{id}', [EmployeeController::class, 'deleteContract']);
     Route::post('/saveDocumentWithOfficials', [EmployeeController::class, 'saveDocumentWithOfficials']);
     Route::put('/updateDocumentWithOfficials/{nomor_kontrak}', [EmployeeController::class, 'updateDocumentWithOfficials']);
     Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
