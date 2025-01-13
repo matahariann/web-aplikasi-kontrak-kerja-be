@@ -122,6 +122,7 @@ class EmployeeController extends Controller
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
+            'surat_keputusan' => 'required|string', 
         ]);
         
         if ($validator->fails()){
@@ -149,10 +150,11 @@ class EmployeeController extends Controller
     public function updateOfficial(Request $request, $nip)
     {
         $validator = Validator::make($request->all(), [
-            'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip',
+            'nip' => 'required|string|unique:officials',
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
+            'surat_keputusan' => 'required|string', 
         ]);
     
         if ($validator->fails()) {
@@ -172,6 +174,7 @@ class EmployeeController extends Controller
                 $newOfficial->nama = $request->nama;
                 $newOfficial->jabatan = $request->jabatan;
                 $newOfficial->periode_jabatan = $request->periode_jabatan;
+                $newOfficial->surat_keputusan = $request->surat_keputusan;
                 $newOfficial->save();
     
                 // 2. Update records di documents_officials dengan NIP baru

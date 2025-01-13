@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('nama');
             $table->string('jabatan');
             $table->string('periode_jabatan');
+            $table->string('surat_keputusan');
             $table->timestamps();
         });
     }

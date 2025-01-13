@@ -16,8 +16,9 @@ class Official extends Model
     protected $fillable = [
         'nip',
         'nama',
-        'jabatan', 
-        'periode_jabatan'
+        'jabatan',
+        'periode_jabatan',
+        'surat_keputusan' 
     ];
 
     protected $guarded = [];
