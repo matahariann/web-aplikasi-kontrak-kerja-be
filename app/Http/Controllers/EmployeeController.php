@@ -122,7 +122,7 @@ class EmployeeController extends Controller
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
-            'surat_keputusan' => 'required|string', 
+            'surat_keputusan' => 'nullable|string', 
         ]);
         
         if ($validator->fails()){
@@ -154,7 +154,7 @@ class EmployeeController extends Controller
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
-            'surat_keputusan' => 'required|string', 
+            'surat_keputusan' => 'nullable|string', 
         ]);
     
         if ($validator->fails()) {
@@ -205,6 +205,43 @@ class EmployeeController extends Controller
                 'detail' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function getPeriodes()
+    {
+    try {
+        $periodes = Official::select('periode_jabatan')
+            ->distinct()
+            ->get()
+            ->pluck('periode_jabatan');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $periodes
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal mengambil data periode'
+        ], 500);
+    }
+    }
+
+    public function getOfficialsByPeriode($periode)
+    {
+    try {
+        $officials = Official::where('periode_jabatan', $periode)->get();
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $officials
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal mengambil data pejabat'
+        ], 500);
+    }
     }
 
     public function addContract(Request $request)
