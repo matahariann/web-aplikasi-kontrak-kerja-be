@@ -150,7 +150,7 @@ class EmployeeController extends Controller
     public function updateOfficial(Request $request, $nip)
     {
         $validator = Validator::make($request->all(), [
-            'nip' => 'required|string|unique:officials',
+            'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip', // Modified validation rule
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
@@ -187,7 +187,7 @@ class EmployeeController extends Controller
                 $official = $newOfficial;
             } else {
                 // Update data lainnya jika NIP tidak berubah
-                $official->update($request->all());
+                $official->update($request->except('nip')); // Exclude NIP from update
             }
     
             DB::commit();
