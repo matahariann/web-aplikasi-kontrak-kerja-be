@@ -14,12 +14,15 @@ return new class extends Migration
     public function up()
     {
         Schema::create('officials', function (Blueprint $table) {
-            $table->string('nip')->primary();
+            $table->id(); // Surrogate primary key
+            $table->string('nip');
             $table->string('nama');
             $table->string('jabatan');
             $table->string('periode_jabatan');
             $table->string('surat_keputusan')->nullable();
             $table->timestamps();
+
+            $table->unique(['nip', 'periode_jabatan']);
         });
     }
 

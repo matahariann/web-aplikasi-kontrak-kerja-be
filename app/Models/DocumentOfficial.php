@@ -12,10 +12,9 @@ class DocumentOfficial extends Model
     protected $table = 'documents_officials';
 
     protected $fillable = [
-        'nip',
+        'official_id',
         'nomor_kontrak',
     ];
-    protected $guarded = [];
 
     public function document()
     {
@@ -24,6 +23,6 @@ class DocumentOfficial extends Model
 
     public function official()
     {
-        return $this->belongsTo(Official::class, 'nip', 'nip');
+        return $this->belongsTo(Official::class, 'official_id', 'id');
     }
 }

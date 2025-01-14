@@ -15,12 +15,19 @@ return new class extends Migration
     {
         Schema::create('documents_officials', function (Blueprint $table) {
             $table->id();
-            $table->string('nip');
+            $table->unsignedBigInteger('official_id'); // Reference to officials.id
             $table->string('nomor_kontrak');
             $table->timestamps();
 
-            $table->foreign('nip')->references('nip')->on('officials')->onDelete('cascade');
-            $table->foreign('nomor_kontrak')->references('nomor_kontrak')->on('documents')->onDelete('cascade');
+            $table->foreign('official_id')
+                  ->references('id')
+                  ->on('officials')
+                  ->onDelete('cascade');
+
+            $table->foreign('nomor_kontrak')
+                  ->references('nomor_kontrak')
+                  ->on('documents')
+                  ->onDelete('cascade');
         });
     }
 
@@ -31,11 +38,11 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('documents_officials');
-
         Schema::table('documents_officials', function (Blueprint $table) {
-            $table->dropForeign(['nip']);
+            $table->dropForeign(['official_id']);
             $table->dropForeign(['nomor_kontrak']);
         });
+
+        Schema::dropIfExists('documents_officials');
     }
 };

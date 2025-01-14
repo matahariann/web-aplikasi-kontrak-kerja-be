@@ -56,7 +56,7 @@ class Document extends Model
         return $this->belongsTo(Vendor::class, 'id_vendor', 'id');
     }
 
-    public function documentOfficial()
+    public function documentOfficials()
     {
         return $this->hasMany(DocumentOfficial::class, 'nomor_kontrak', 'nomor_kontrak');
     }

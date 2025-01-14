@@ -10,21 +10,22 @@ class Official extends Model
     use HasFactory;
 
     protected $table = 'officials';
-    protected $primaryKey = 'nip';
-    public $incrementing = false;
-    protected $keyType = 'string';
     protected $fillable = [
         'nip',
         'nama',
         'jabatan',
         'periode_jabatan',
-        'surat_keputusan' 
+        'surat_keputusan',
     ];
 
-    protected $guarded = [];
-
-    public function documentOfficial()
+    public function documentOfficials()
     {
-        return $this->hasMany(DocumentOfficial::class, 'nip', 'nip');
+        return $this->hasMany(DocumentOfficial::class, 'official_id', 'id');
+    }
+
+    public function documents()
+    {
+        return $this->belongsToMany(Document::class, 'documents_officials', 'official_id', 'nomor_kontrak')
+                    ->withTimestamps();
     }
 }

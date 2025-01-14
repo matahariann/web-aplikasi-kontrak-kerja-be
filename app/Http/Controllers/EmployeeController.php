@@ -118,7 +118,7 @@ class EmployeeController extends Controller
     public function addOfficial(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nip' => 'required|string|unique:officials',
+            'nip' => 'required|string',
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
@@ -128,14 +128,22 @@ class EmployeeController extends Controller
         if ($validator->fails()){
             return response()->json($validator->errors(), 400);
         }
-
+    
         DB::beginTransaction();
-
+    
         try{
+            // Ensure the combination of nip and periode_jabatan is unique
+            $exists = Official::where('nip', $request->nip)
+                             ->where('periode_jabatan', $request->periode_jabatan)
+                             ->exists();
+            if ($exists) {
+                return response()->json(['error' => 'The combination of NIP and Periode Jabatan already exists.'], 400);
+            }
+    
             $official = Official::create($request->all());
-
+    
             DB::commit();
-
+    
             return response()->json([
                 'message' => 'Data pejabat berhasil disimpan',
                 'data' => $official
@@ -147,10 +155,10 @@ class EmployeeController extends Controller
         }
     }
 
-    public function updateOfficial(Request $request, $nip)
+    public function updateOfficial(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'nip' => 'required|string|unique:officials,nip,' . $nip . ',nip', // Modified validation rule
+            'nip' => 'required|string',
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
@@ -164,31 +172,19 @@ class EmployeeController extends Controller
         DB::beginTransaction();
     
         try {
-            $official = Official::findOrFail($nip);
-            $newNip = $request->nip;
+            $official = Official::findOrFail($id);
     
-            if ($nip !== $newNip) {
-                // 1. Buat record baru dengan NIP baru
-                $newOfficial = new Official();
-                $newOfficial->nip = $newNip;
-                $newOfficial->nama = $request->nama;
-                $newOfficial->jabatan = $request->jabatan;
-                $newOfficial->periode_jabatan = $request->periode_jabatan;
-                $newOfficial->surat_keputusan = $request->surat_keputusan;
-                $newOfficial->save();
-    
-                // 2. Update records di documents_officials dengan NIP baru
-                DocumentOfficial::where('nip', $nip)
-                    ->update(['nip' => $newNip]);
-    
-                // 3. Hapus record lama
-                $official->delete();
-                
-                $official = $newOfficial;
-            } else {
-                // Update data lainnya jika NIP tidak berubah
-                $official->update($request->except('nip')); // Exclude NIP from update
+            // Check if the new combination of nip and periode_jabatan already exists
+            if (($official->nip !== $request->nip) || ($official->periode_jabatan !== $request->periode_jabatan)) {
+                $exists = Official::where('nip', $request->nip)
+                                 ->where('periode_jabatan', $request->periode_jabatan)
+                                 ->exists();
+                if ($exists) {
+                    return response()->json(['error' => 'The combination of NIP and Periode Jabatan already exists.'], 400);
+                }
             }
+    
+            $official->update($request->all());
     
             DB::commit();
     
@@ -390,10 +386,11 @@ class EmployeeController extends Controller
 
     public function saveDocumentWithOfficials(Request $request)
     {
-        // Modify validation rules to match nested document structure
+        // Modify validation rules to include periode_jabatan and ensure uniqueness
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:1',
             'officials.*.nip' => 'required|string|exists:officials,nip',
+            'officials.*.periode_jabatan' => 'required|string|exists:officials,periode_jabatan',
             'document.nomor_kontrak' => 'required|string|unique:documents,nomor_kontrak',
             'document.tanggal_kontrak' => 'required|date',
             'document.paket_pekerjaan' => 'required|string',
@@ -446,8 +443,16 @@ class EmployeeController extends Controller
     
             // Create document-official relationships
             foreach ($request->input('officials') as $officialData) {
+                $official = Official::where('nip', $officialData['nip'])
+                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                    ->first();
+    
+                if (!$official) {
+                    throw new \Exception('Official not found with provided NIP and Periode Jabatan');
+                }
+    
                 DocumentOfficial::create([
-                    'nip' => $officialData['nip'],
+                    'official_id' => $official->id,
                     'nomor_kontrak' => $document->nomor_kontrak
                 ]);
             }
@@ -458,7 +463,7 @@ class EmployeeController extends Controller
                 'message' => 'Data dokumen dan pejabat berhasil disimpan',
                 'data' => [
                     'document' => $document,
-                    'officials' => $request->input('officials')
+                    'officials' => $document->officials
                 ]
             ], 201);
     
@@ -474,9 +479,11 @@ class EmployeeController extends Controller
 
     public function updateDocumentWithOfficials(Request $request, $nomor_kontrak)
     {
+        // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:1',
             'officials.*.nip' => 'required|string|exists:officials,nip',
+            'officials.*.periode_jabatan' => 'required|string|exists:officials,periode_jabatan',
             'document.nomor_kontrak' => [
                 'required',
                 'string',
@@ -510,6 +517,7 @@ class EmployeeController extends Controller
             'document.kode_kegiatan' => 'required|string',
         ]);
     
+        // Handle validation failures
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
@@ -517,64 +525,103 @@ class EmployeeController extends Controller
         DB::beginTransaction();
     
         try {
+            // Retrieve the existing document
             $document = Document::findOrFail($nomor_kontrak);
             $latestVendor = Vendor::latest('id')->first();
-            
+    
             if (!$latestVendor) {
                 throw new \Exception('Tidak ada vendor yang tersedia');
             }
-
+    
+            // Merge request data with the latest vendor ID
             $documentData = array_merge($request->input('document'), [
                 'id_vendor' => $latestVendor->id
             ]);
-
+    
             $newNomorKontrak = $documentData['nomor_kontrak'];
-            
+    
             if ($nomor_kontrak !== $newNomorKontrak) {
-                // 1. Create new document first
+                // Check if the new contract number already exists
+                if (Document::where('nomor_kontrak', $newNomorKontrak)->exists()) {
+                    throw new \Exception('Nomor kontrak baru sudah ada');
+                }
+    
+                // Create a new document with the updated contract number
                 $newDocument = Document::create($documentData);
-
-                // 2. Update existing contracts to reference new document
+    
+                // Update related contracts to reference the new contract number
+                // Assuming Contract model exists and has 'nomor_kontrak' field
                 Contract::where('nomor_kontrak', $nomor_kontrak)
                     ->update(['nomor_kontrak' => $newNomorKontrak]);
-
-                // 3. Update document officials
+    
+                // Update related documents_officials to reference the new contract number
                 DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)
                     ->update(['nomor_kontrak' => $newNomorKontrak]);
-                
-                // 4. Delete old document (this will cascade properly now)
+    
+                // Delete the old document
                 $document->delete();
-                
+    
+                // Set the document variable to the new document for further processing
                 $document = $newDocument;
             } else {
-                // If nomor_kontrak is not changed, just update normally
+                // If nomor_kontrak is not changed, just update the existing document
                 $document->update($documentData);
-                
-                // Update officials
+            }
+    
+            // Process the officials data
+            $officials = $request->input('officials');
+    
+            // Collect official IDs based on provided NIP and periode_jabatan
+            $officialIds = [];
+            foreach ($officials as $officialData) {
+                $official = Official::where('nip', $officialData['nip'])
+                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                    ->first();
+    
+                if (!$official) {
+                    throw new \Exception('Official not found with provided NIP and Periode Jabatan');
+                }
+    
+                $officialIds[] = $official->id;
+            }
+    
+            if ($nomor_kontrak !== $newNomorKontrak) {
+                // If nomor_kontrak was changed, documentOfficials are already updated
+                // No further action needed
+            } else {
+                // If nomor_kontrak is not changed, synchronize the officials
+                // First, delete existing relationships
                 DocumentOfficial::where('nomor_kontrak', $document->nomor_kontrak)->delete();
-                
-                foreach ($request->input('officials') as $officialData) {
+    
+                // Then, create new relationships
+                foreach ($officialIds as $officialId) {
                     DocumentOfficial::create([
-                        'nip' => $officialData['nip'],
+                        'official_id' => $officialId,
                         'nomor_kontrak' => $document->nomor_kontrak
                     ]);
                 }
             }
-
+    
             DB::commit();
-
-            // Refresh the document with its relationships
-            $document = Document::with(['vendor', 'contracts', 'documentOfficial'])
-                ->find($newNomorKontrak);
-
+    
+            // Reload the document with its relationships
+            // Since 'officials' relationship does not exist, use 'documentOfficials.official'
+            $document = Document::with(['vendor', 'contracts', 'documentOfficials.official'])
+                ->find($document->nomor_kontrak);
+    
+            // Transform documentOfficials to extract officials data
+            $officialsData = $document->documentOfficials->map(function ($docOfficial) {
+                return $docOfficial->official;
+            });
+    
             return response()->json([
                 'message' => 'Data dokumen dan pejabat berhasil diperbarui',
                 'data' => [
                     'document' => $document,
-                    'officials' => $request->input('officials')
+                    'officials' => $officialsData
                 ]
             ]);
-
+    
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error updating document with officials: ' . $e->getMessage());
@@ -584,6 +631,7 @@ class EmployeeController extends Controller
             ], 500);
         }
     }
+    
 
     public function showImage($id)
     {
