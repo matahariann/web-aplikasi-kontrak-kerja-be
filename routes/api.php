@@ -51,25 +51,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/session-data/{sessionId}', [EmployeeController::class, 'getSessionData']);
     Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
 
-    // Vendor routes
-    Route::get('/vendors', [VendorController::class, 'index']);
-    Route::get('/vendors/{id}', [VendorController::class, 'show']);
-    Route::post('/vendors', [VendorController::class, 'store']);
-
-    // Document routes
+    // Documents routes
     Route::get('/documents', [DocumentController::class, 'index']);
-    Route::get('/documents/{nomor_kontrak}', [DocumentController::class, 'show']);
-    Route::post('/documents', [DocumentController::class, 'store']);
-    
-    // Official routes
-    Route::post('/officials', [OfficialController::class, 'store']);
-
-    // Contract routes
-    Route::get('/contracts/{nomor_kontrak}', [ContractController::class, 'show']);
-    Route::post('/contracts', [ContractController::class, 'store']);
-
-    // Document Official routes
-    Route::post('/document-officials', [DocumentOfficialController::class, 'store']);
-    Route::get('/document-officials/document/{nomor_kontrak}', [DocumentOfficialController::class, 'getByDocument']);
-    Route::get('/document-officials/official/{nip}', [DocumentOfficialController::class, 'getByOfficial']);
 });
