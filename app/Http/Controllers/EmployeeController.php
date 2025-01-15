@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule as ValidationRule;
+use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
@@ -34,124 +35,172 @@ class EmployeeController extends Controller
     return response()->json([
         'success' => true,
         'data' => [
-            'operator' => [  // Sesuaikan dengan struktur yang diharapkan frontend
+            'employee' => [ 
                 'nip' => $user->nip,
                 'nama' => $user->nama,
                 'email' => $user->email,
-                'noTelp' => $user->no_telp,  // Sesuaikan dengan camelCase di frontend
+                'noTelp' => $user->no_telp, 
                 'alamat' => $user->alamat
             ]
         ]
     ]);
     }
 
+    private function getOrCreateFormSession(Request $request)
+    {
+        $formSessionId = $request->input('form_session_id');
+        
+        if (!$formSessionId) {
+            $formSessionId = (string) Str::uuid();
+        }
+        
+        return $formSessionId;
+    }
+
     public function addVendor(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama_vendor' => 'required|string|unique:vendors',
+            'nama_vendor' => 'required|string',
             'alamat_vendor' => 'required|string',
             'nama_pj' => 'required|string',
             'jabatan_pj' => 'required|string',
-            'npwp' => 'required|string|unique:vendors',
+            'npwp' => 'required|string',
             'bank_vendor' => 'required|string',
-            'norek_vendor' => 'required|string|unique:vendors',
+            'norek_vendor' => 'required|string',
             'nama_rek_vendor' => 'required|string',
         ]);
-
-        if ($validator->fails()){
+    
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-
+    
         DB::beginTransaction();
-
-        try{
-            $vendor = Vendor::create($request->all());
+    
+        try {
+            // Gunakan form_session_id dari request jika ada, jika tidak buat baru
+            $formSessionId = $request->input('form_session_id') ?? (string) Str::uuid();
+            
+            $vendorData = array_merge($request->all(), [
+                'form_session_id' => $formSessionId
+            ]);
+    
+            $vendor = Vendor::create($vendorData);
             
             DB::commit();
-
+    
             return response()->json([
                 'message' => 'Data vendor berhasil disimpan',
-                'data' => $vendor
+                'data' => $vendor,
+                'form_session_id' => $formSessionId
             ], 201);
+    
         } catch (\Exception $e) {
-            // Rollback transaksi jika terjadi kesalahan
             DB::rollBack();
-            return response()->json(['error' => 'Terjadi kesalahan saat menambahkan vendor'], 500);
+            
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menambahkan vendor',
+                'detail' => $e->getMessage()
+            ], 500);
         }
     }
+
 
     public function updateVendor(Request $request, $id)
     {
-    $validator = Validator::make($request->all(), [
-        'nama_vendor' => 'required|string|unique:vendors,nama_vendor,'.$id,
-        'alamat_vendor' => 'required|string',
-        'nama_pj' => 'required|string',
-        'jabatan_pj' => 'required|string',
-        'npwp' => 'required|string|unique:vendors,npwp,'.$id,
-        'bank_vendor' => 'required|string',
-        'norek_vendor' => 'required|string|unique:vendors,norek_vendor,'.$id,
-        'nama_rek_vendor' => 'required|string',
-    ]);
-
-    if ($validator->fails()){
-        return response()->json($validator->errors(), 400);
-    }
-
-    DB::beginTransaction();
-
-    try {
-        $vendor = Vendor::findOrFail($id);
-        $vendor->update($request->all());
-        
-        DB::commit();
-        
-        return response()->json([
-            'message' => 'Data vendor berhasil diperbarui',
-            'data' => $vendor
+        $validator = Validator::make($request->all(), [
+            'nama_vendor' => 'required|string',
+            'alamat_vendor' => 'required|string',
+            'nama_pj' => 'required|string',
+            'jabatan_pj' => 'required|string',
+            'npwp' => 'required|string',
+            'bank_vendor' => 'required|string',
+            'norek_vendor' => 'required|string',
+            'nama_rek_vendor' => 'required|string',
         ]);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json(['error' => 'Terjadi kesalahan saat memperbarui vendor'], 500);
-    }
+    
+        if ($validator->fails()){
+            return response()->json($validator->errors(), 400);
+        }
+    
+        DB::beginTransaction();
+    
+        try {
+            $vendor = Vendor::findOrFail($id);
+            
+            // Pertahankan form_session_id yang ada
+            $updateData = array_merge($request->all(), [
+                'form_session_id' => $vendor->form_session_id
+            ]);
+            
+            $vendor->update($updateData);
+            
+            DB::commit();
+            
+            return response()->json([
+                'message' => 'Data vendor berhasil diperbarui',
+                'data' => $vendor,
+                'form_session_id' => $vendor->form_session_id
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Terjadi kesalahan saat memperbarui vendor'], 500);
+        }
     }
 
     public function addOfficial(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'form_session_id' => 'required|uuid',
             'nip' => 'required|string',
             'nama' => 'required|string',
             'jabatan' => 'required|string',
             'periode_jabatan' => 'required|string',
-            'surat_keputusan' => 'nullable|string', 
+            'surat_keputusan' => 'nullable|string',
         ]);
         
-        if ($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
     
         DB::beginTransaction();
     
-        try{
-            // Ensure the combination of nip and periode_jabatan is unique
-            $exists = Official::where('nip', $request->nip)
-                             ->where('periode_jabatan', $request->periode_jabatan)
-                             ->exists();
-            if ($exists) {
-                return response()->json(['error' => 'The combination of NIP and Periode Jabatan already exists.'], 400);
+        try {
+            $vendor = Vendor::where('form_session_id', $request->form_session_id)->first();
+            if (!$vendor) {
+                return response()->json([
+                    'error' => 'Vendor tidak ditemukan untuk form session ini.'
+                ], 400);
             }
     
-            $official = Official::create($request->all());
+            $exists = Official::where('nip', $request->nip)
+                            ->where('periode_jabatan', $request->periode_jabatan)
+                            ->exists();
+            if ($exists) {
+                return response()->json([
+                    'error' => 'Kombinasi NIP dan Periode Jabatan sudah ada.'
+                ], 400);
+            }
+    
+            $officialData = array_merge($request->all(), [
+                'form_session_id' => $request->form_session_id
+            ]);
+    
+            $official = Official::create($officialData);
     
             DB::commit();
     
             return response()->json([
                 'message' => 'Data pejabat berhasil disimpan',
-                'data' => $official
+                'data' => $official,
+                'form_session_id' => $request->form_session_id
             ], 201);
         } catch (\Exception $e) {
-            // Rollback transaksi jika terjadi kesalahan
             DB::rollBack();
-            return response()->json(['error' => 'Terjadi kesalahan saat menambahkan pejabat'], 500);
+            
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menambahkan pejabat',
+                'detail' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -174,7 +223,6 @@ class EmployeeController extends Controller
         try {
             $official = Official::findOrFail($id);
     
-            // Check if the new combination of nip and periode_jabatan already exists
             if (($official->nip !== $request->nip) || ($official->periode_jabatan !== $request->periode_jabatan)) {
                 $exists = Official::where('nip', $request->nip)
                                  ->where('periode_jabatan', $request->periode_jabatan)
@@ -242,13 +290,6 @@ class EmployeeController extends Controller
 
     public function addContract(Request $request)
     {
-        // Ambil nomor kontrak terakhir dari tabel documents
-        $lastDocument = Document::orderBy('created_at', 'desc')->first();
-        
-        if (!$lastDocument) {
-            return response()->json(['error' => 'Tidak ada dokumen yang tersedia'], 404);
-        }
-    
         $validator = Validator::make($request->all(), [
             'jenis_kontrak' => 'required|string',
             'deskripsi' => 'required|string',
@@ -256,6 +297,7 @@ class EmployeeController extends Controller
             'durasi_kontrak' => 'required|integer',
             'nilai_kontral_awal' => 'required|numeric',
             'nilai_kontrak_akhir' => 'required|numeric',
+            'form_session_id' => 'required|uuid'
         ]);
     
         if ($validator->fails()) {
@@ -265,9 +307,18 @@ class EmployeeController extends Controller
         DB::beginTransaction();
     
         try {
-            // Tambahkan nomor kontrak dari dokumen terakhir ke data request
-            $contractData = $request->all();
-            $contractData['nomor_kontrak'] = $lastDocument->nomor_kontrak;
+            $document = Document::where('form_session_id', $request->form_session_id)
+                              ->latest()
+                              ->first();
+    
+            if (!$document) {
+                throw new \Exception('Vendor tidak ditemukan untuk form session ' . $request->form_session_id);
+            }
+    
+            $contractData = array_merge($request->all(), [
+                'nomor_kontrak' => $document->nomor_kontrak,
+                'form_session_id' => $request->form_session_id
+            ]);
     
             $contract = Contract::create($contractData);
             
@@ -277,9 +328,14 @@ class EmployeeController extends Controller
                 'message' => 'Data kontrak berhasil disimpan',
                 'data' => $contract
             ], 201);
+    
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Terjadi kesalahan saat menambahkan kontrak'], 500);
+            
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menambahkan kontrak',
+                'detail' => $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -304,9 +360,7 @@ class EmployeeController extends Controller
             $contract = Contract::findOrFail($id);
             $oldNomorKontrak = $contract->nomor_kontrak;
     
-            // Cek apakah ada permintaan untuk mengubah nomor kontrak
             if ($request->has('nomor_kontrak') && $request->nomor_kontrak !== $oldNomorKontrak) {
-                // Validasi nomor kontrak baru
                 $newNomorKontrak = $request->nomor_kontrak;
                 $documentExists = Document::where('nomor_kontrak', $newNomorKontrak)->exists();
                 
@@ -315,7 +369,6 @@ class EmployeeController extends Controller
                     return response()->json(['error' => 'Nomor kontrak tidak ditemukan dalam dokumen'], 404);
                 }
     
-                // Buat record baru dengan nomor kontrak baru
                 $newContract = new Contract();
                 $newContract->nomor_kontrak = $newNomorKontrak;
                 $newContract->jenis_kontrak = $request->jenis_kontrak;
@@ -326,12 +379,10 @@ class EmployeeController extends Controller
                 $newContract->nilai_kontrak_akhir = $request->nilai_kontrak_akhir;
                 $newContract->save();
     
-                // Hapus record lama
                 $contract->delete();
                 
                 $contract = $newContract;
             } else {
-                // Update data lainnya jika nomor kontrak tidak berubah
                 $contract->update($request->except('nomor_kontrak'));
             }
     
@@ -384,13 +435,13 @@ class EmployeeController extends Controller
     }
     }
 
-    public function saveDocumentWithOfficials(Request $request)
+    public function addDocument(Request $request)
     {
-        // Modify validation rules to include periode_jabatan and ensure uniqueness
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:1',
             'officials.*.nip' => 'required|string|exists:officials,nip',
             'officials.*.periode_jabatan' => 'required|string|exists:officials,periode_jabatan',
+            'document' => 'required|array',
             'document.nomor_kontrak' => 'required|string|unique:documents,nomor_kontrak',
             'document.tanggal_kontrak' => 'required|date',
             'document.paket_pekerjaan' => 'required|string',
@@ -418,68 +469,84 @@ class EmployeeController extends Controller
             'document.nomor_dipa' => 'required|string',
             'document.tanggal_dipa' => 'required|date',
             'document.kode_kegiatan' => 'required|string',
+            'form_session_id' => 'nullable|uuid'
         ]);
     
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-    
+
         DB::beginTransaction();
-    
+
         try {
-            // Get latest vendor
-            $latestVendor = Vendor::latest('id')->first();
-            if (!$latestVendor) {
-                throw new \Exception('Tidak ada vendor yang tersedia');
+            $formSessionId = $this->getOrCreateFormSession($request);
+            
+            $vendor = Vendor::where('form_session_id', $formSessionId)->latest()->first();
+            
+            if (!$vendor) {
+                $totalVendors = Vendor::count();
+                Log::error('Vendor not found. Debug info:', [
+                    'form_session_id' => $formSessionId,
+                    'total_vendors_in_system' => $totalVendors,
+                    'all_form_session_ids' => Vendor::pluck('form_session_id')->toArray()
+                ]);
+                
+                throw new \Exception('No vendor found for form session ID: ' . $formSessionId);
             }
-    
-            // Add vendor ID to document data
-            $documentData = array_merge($request->input('document'), [
-                'id_vendor' => $latestVendor->id
-            ]);
-    
-            // Create document
-            $document = Document::create($documentData);
-    
-            // Create document-official relationships
+
             foreach ($request->input('officials') as $officialData) {
-                $official = Official::where('nip', $officialData['nip'])
-                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                    ->first();
-    
+                $official = Official::where('form_session_id', $formSessionId)
+                                ->where('nip', $officialData['nip'])
+                                ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                ->first();
+            }
+
+            $documentData = array_merge($request->input('document'), [
+                'vendor_id' => $vendor->id,
+                'form_session_id' => $formSessionId
+            ]);
+
+            $document = Document::create($documentData);
+
+            foreach ($request->input('officials') as $officialData) {
+                $official = Official::where('form_session_id', $formSessionId)
+                                ->where('nip', $officialData['nip'])
+                                ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                ->first();
+
                 if (!$official) {
-                    throw new \Exception('Official not found with provided NIP and Periode Jabatan');
+                    throw new \Exception('Official not found for NIP: ' . $officialData['nip'] . 
+                                    ' and period: ' . $officialData['periode_jabatan']);
                 }
-    
+
                 DocumentOfficial::create([
                     'official_id' => $official->id,
-                    'nomor_kontrak' => $document->nomor_kontrak
+                    'nomor_kontrak' => $document->nomor_kontrak,
+                    'form_session_id' => $formSessionId
                 ]);
             }
-    
+
             DB::commit();
-    
+
             return response()->json([
                 'message' => 'Data dokumen dan pejabat berhasil disimpan',
                 'data' => [
                     'document' => $document,
-                    'officials' => $document->officials
-                ]
+                ],
             ], 201);
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving document with officials: ' . $e->getMessage());
+            
             return response()->json([
                 'error' => 'Terjadi kesalahan saat menyimpan data',
-                'detail' => $e->getMessage()
+                'detail' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function updateDocumentWithOfficials(Request $request, $nomor_kontrak)
+    public function updateDocument(Request $request, $nomor_kontrak)
     {
-        // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:1',
             'officials.*.nip' => 'required|string|exists:officials,nip',
@@ -487,7 +554,7 @@ class EmployeeController extends Controller
             'document.nomor_kontrak' => [
                 'required',
                 'string',
-                \Illuminate\Validation\Rule::unique('documents', 'nomor_kontrak')->ignore($nomor_kontrak, 'nomor_kontrak')
+                ValidationRule::unique('documents', 'nomor_kontrak')->ignore($nomor_kontrak, 'nomor_kontrak')
             ],
             'document.tanggal_kontrak' => 'required|date',
             'document.paket_pekerjaan' => 'required|string',
@@ -517,121 +584,111 @@ class EmployeeController extends Controller
             'document.kode_kegiatan' => 'required|string',
         ]);
     
-        // Handle validation failures
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
     
         DB::beginTransaction();
-    
-        try {
-            // Retrieve the existing document
-            $document = Document::findOrFail($nomor_kontrak);
-            $latestVendor = Vendor::latest('id')->first();
-    
-            if (!$latestVendor) {
-                throw new \Exception('Tidak ada vendor yang tersedia');
-            }
-    
-            // Merge request data with the latest vendor ID
-            $documentData = array_merge($request->input('document'), [
-                'id_vendor' => $latestVendor->id
-            ]);
-    
-            $newNomorKontrak = $documentData['nomor_kontrak'];
-    
-            if ($nomor_kontrak !== $newNomorKontrak) {
-                // Check if the new contract number already exists
-                if (Document::where('nomor_kontrak', $newNomorKontrak)->exists()) {
-                    throw new \Exception('Nomor kontrak baru sudah ada');
-                }
-    
-                // Create a new document with the updated contract number
-                $newDocument = Document::create($documentData);
-    
-                // Update related contracts to reference the new contract number
-                // Assuming Contract model exists and has 'nomor_kontrak' field
-                Contract::where('nomor_kontrak', $nomor_kontrak)
-                    ->update(['nomor_kontrak' => $newNomorKontrak]);
-    
-                // Update related documents_officials to reference the new contract number
-                DocumentOfficial::where('nomor_kontrak', $nomor_kontrak)
-                    ->update(['nomor_kontrak' => $newNomorKontrak]);
-    
-                // Delete the old document
-                $document->delete();
-    
-                // Set the document variable to the new document for further processing
-                $document = $newDocument;
-            } else {
-                // If nomor_kontrak is not changed, just update the existing document
-                $document->update($documentData);
-            }
-    
-            // Process the officials data
-            $officials = $request->input('officials');
-    
-            // Collect official IDs based on provided NIP and periode_jabatan
-            $officialIds = [];
-            foreach ($officials as $officialData) {
-                $official = Official::where('nip', $officialData['nip'])
-                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                    ->first();
-    
-                if (!$official) {
-                    throw new \Exception('Official not found with provided NIP and Periode Jabatan');
-                }
-    
-                $officialIds[] = $official->id;
-            }
-    
-            if ($nomor_kontrak !== $newNomorKontrak) {
-                // If nomor_kontrak was changed, documentOfficials are already updated
-                // No further action needed
-            } else {
-                // If nomor_kontrak is not changed, synchronize the officials
-                // First, delete existing relationships
-                DocumentOfficial::where('nomor_kontrak', $document->nomor_kontrak)->delete();
-    
-                // Then, create new relationships
-                foreach ($officialIds as $officialId) {
-                    DocumentOfficial::create([
-                        'official_id' => $officialId,
-                        'nomor_kontrak' => $document->nomor_kontrak
-                    ]);
-                }
-            }
-    
-            DB::commit();
-    
-            // Reload the document with its relationships
-            // Since 'officials' relationship does not exist, use 'documentOfficials.official'
-            $document = Document::with(['vendor', 'contracts', 'documentOfficials.official'])
-                ->find($document->nomor_kontrak);
-    
-            // Transform documentOfficials to extract officials data
-            $officialsData = $document->documentOfficials->map(function ($docOfficial) {
-                return $docOfficial->official;
-            });
-    
-            return response()->json([
-                'message' => 'Data dokumen dan pejabat berhasil diperbarui',
-                'data' => [
-                    'document' => $document,
-                    'officials' => $officialsData
-                ]
-            ]);
-    
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error updating document with officials: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'Terjadi kesalahan saat memperbarui data',
-                'detail' => $e->getMessage()
-            ], 500);
+
+    try {
+        $document = Document::findOrFail($nomor_kontrak);
+        $vendor = $document->vendor;
+
+        if (!$vendor) {
+            throw new \Exception('Vendor tidak ditemukan untuk dokumen ini.');
         }
+
+        $documentData = $request->input('document');
+        $newNomorKontrak = $documentData['nomor_kontrak'];
+
+        if ($nomor_kontrak !== $newNomorKontrak) {
+            $document->update(['nomor_kontrak' => $newNomorKontrak] + $documentData);
+        } else {
+            $document->update($documentData);
+        }
+
+        // Update officials
+        $officialsInput = $request->input('officials');
+        $officialIds = [];
+
+        foreach ($officialsInput as $officialData) {
+            $official = Official::where('nip', $officialData['nip'])
+                                ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                ->first();
+
+            if (!$official) {
+                throw new \Exception('Official tidak ditemukan untuk NIP: ' . $officialData['nip'] . ' dan periode: ' . $officialData['periode_jabatan']);
+            }
+
+            $officialIds[] = $official->id;
+        }
+
+        $document->officials()->sync($officialIds);
+
+        DB::commit();
+
+        $document = Document::with(['vendor', 'contracts', 'officials'])
+                           ->find($newNomorKontrak);
+
+        return response()->json([
+            'message' => 'Data dokumen dan pejabat berhasil diperbarui',
+            'data' => [
+                'document' => $document,
+                'officials' => $document->officials
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error updating document with officials: ' . $e->getMessage());
+        return response()->json([
+            'error' => 'Terjadi kesalahan saat memperbarui data',
+            'detail' => $e->getMessage()
+        ], 500);
+    }
     }
     
+    public function getSessionData($sessionId)
+    {
+    try {
+        // Get vendor data
+        $vendor = Vendor::where('form_session_id', $sessionId)->first();
+        if (!$vendor) {
+            throw new \Exception('Vendor data not found');
+        }
+
+        // Get officials data
+        $officials = Official::where('form_session_id', $sessionId)->get();
+        if ($officials->isEmpty()) {
+            throw new \Exception('Officials data not found');
+        }
+
+        // Get document data
+        $document = Document::where('form_session_id', $sessionId)->first();
+        if (!$document) {
+            throw new \Exception('Document data not found');
+        }
+
+        // Get contracts data
+        $contracts = Contract::where('form_session_id', $sessionId)->get();
+        if ($contracts->isEmpty()) {
+            throw new \Exception('Contracts data not found');
+        }
+
+        return response()->json([
+            'vendor' => $vendor,
+            'officials' => $officials,
+            'document' => $document,
+            'contracts' => $contracts
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Gagal mengambil data',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+    }
 
     public function showImage($id)
     {
@@ -646,7 +703,7 @@ class EmployeeController extends Controller
             'data' => [
                 'id' => $image->id,
                 'name' => $image->name,
-                'image' => $imageData // Kirim data gambar dalam format base64
+                'image' => $imageData
             ]
         ]);
     }

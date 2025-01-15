@@ -17,6 +17,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('official_id'); // Reference to officials.id
             $table->string('nomor_kontrak');
+            $table->uuid('form_session_id')->nullable();
             $table->timestamps();
 
             $table->foreign('official_id')
@@ -24,10 +25,11 @@ return new class extends Migration
                   ->on('officials')
                   ->onDelete('cascade');
 
-            $table->foreign('nomor_kontrak')
+                  $table->foreign('nomor_kontrak')
                   ->references('nomor_kontrak')
                   ->on('documents')
-                  ->onDelete('cascade');
+                  ->onDelete('cascade')
+                  ->onUpdate('cascade');
         });
     }
 

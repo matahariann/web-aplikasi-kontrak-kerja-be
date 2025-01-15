@@ -41,10 +41,11 @@ return new class extends Migration
             $table->string('nomor_dipa');
             $table->date('tanggal_dipa');
             $table->string('kode_kegiatan');
-            $table->unsignedBigInteger('id_vendor');           
+            $table->unsignedBigInteger('vendor_id');
+            $table->uuid('form_session_id')->nullable();        
             $table->timestamps();
 
-            $table->foreign('id_vendor')->references('id')->on('vendors')->onDelete('cascade');
+            $table->foreign('vendor_id')->references('id')->on('vendors')->onDelete('cascade');
         });
     }
 
@@ -58,7 +59,7 @@ return new class extends Migration
         Schema::dropIfExists('documents');
 
         Schema::table('documents', function (Blueprint $table) {
-            $table->dropForeign(['id_vendor']);
+            $table->dropForeign(['vendor_id']);
         });
     }
 };

@@ -41,7 +41,8 @@ class Document extends Model
         'nomor_dipa',
         'tanggal_dipa',
         'kode_kegiatan',
-        'id_vendor'
+        'vendor_id',
+        'form_session_id',
     ];
 
     protected $guarded = [];
@@ -53,11 +54,12 @@ class Document extends Model
 
     public function vendor()
     {
-        return $this->belongsTo(Vendor::class, 'id_vendor', 'id');
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'id');
     }
 
-    public function documentOfficials()
+    public function officials()
     {
-        return $this->hasMany(DocumentOfficial::class, 'nomor_kontrak', 'nomor_kontrak');
+        return $this->belongsToMany(Official::class, 'documents_officials', 'nomor_kontrak', 'official_id')
+                    ->withTimestamps();
     }
 }

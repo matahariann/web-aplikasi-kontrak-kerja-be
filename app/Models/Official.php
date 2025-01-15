@@ -16,12 +16,8 @@ class Official extends Model
         'jabatan',
         'periode_jabatan',
         'surat_keputusan',
+        'form_session_id',
     ];
-
-    public function documentOfficials()
-    {
-        return $this->hasMany(DocumentOfficial::class, 'official_id', 'id');
-    }
 
     public function documents()
     {

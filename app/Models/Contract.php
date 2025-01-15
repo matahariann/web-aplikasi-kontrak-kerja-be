@@ -18,6 +18,7 @@ class Contract extends Model
         'nilai_kontral_awal',
         'nilai_kontrak_akhir',
         'nomor_kontrak',
+        'form_session_id',
     ];
     protected $guarded = [];
 

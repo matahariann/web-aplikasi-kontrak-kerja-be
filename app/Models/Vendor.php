@@ -19,12 +19,13 @@ class Vendor extends Model
         'bank_vendor',
         'norek_vendor',
         'nama_rek_vendor',
+        'form_session_id',
     ];
 
     protected $guarded = [];
 
     public function document()
     {
-        return $this->hasMany(Document::class, 'id_vendor', 'id');
+        return $this->hasOne(Document::class, 'id_vendor', 'id');
     }
 }

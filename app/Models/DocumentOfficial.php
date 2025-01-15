@@ -14,6 +14,7 @@ class DocumentOfficial extends Model
     protected $fillable = [
         'official_id',
         'nomor_kontrak',
+        'form_session_id',
     ];
 
     public function document()
