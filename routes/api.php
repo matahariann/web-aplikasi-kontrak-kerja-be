@@ -49,6 +49,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/deleteContract/{id}', [EmployeeController::class, 'deleteContract']);
 
     Route::get('/session-data/{sessionId}', [EmployeeController::class, 'getSessionData']);
+    Route::get('/document-data/{nomorKontrak}', [EmployeeController::class, 'getDocumentData']);
     Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
 
     // Documents routes

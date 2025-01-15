@@ -690,6 +690,28 @@ class EmployeeController extends Controller
     }
     }
 
+    public function getDocumentData($nomorKontrak)
+    {
+        try {
+            // Get document with related data using relationships
+            $document = Document::with(['vendor', 'officials', 'contracts'])
+                ->where('nomor_kontrak', $nomorKontrak)
+                ->first();
+    
+            if (!$document) {
+                throw new \Exception('Document not found');
+            }
+    
+            return response()->json($document);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Gagal mengambil data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function showImage($id)
     {
         $image = Images::findOrFail($id);
