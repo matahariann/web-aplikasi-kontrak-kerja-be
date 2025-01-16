@@ -288,6 +288,89 @@ class EmployeeController extends Controller
     }
     }
 
+// EmployeeController.php - Tambah method baru
+
+public function updateDocumentOfficial(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'form_session_id' => 'required|uuid',
+        'official_ids' => 'required|array',
+        'official_ids.*' => 'required|exists:officials,id'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json($validator->errors(), 400);
+    }
+
+    DB::beginTransaction();
+    try {
+        // Cari document yang terkait dengan form_session_id
+        $document = Document::where('form_session_id', $request->form_session_id)->first();
+        
+        if (!$document) {
+            return response()->json([
+                'error' => 'Document tidak ditemukan untuk form session ini.'
+            ], 404);
+        }
+
+        // Hapus semua relasi yang ada untuk document ini
+        DB::table('documents_officials')
+            ->where('nomor_kontrak', $document->nomor_kontrak)
+            ->delete();
+
+        // Insert relasi baru
+        $documentOfficials = [];
+        foreach ($request->official_ids as $officialId) {
+            $documentOfficials[] = [
+                'official_id' => $officialId,
+                'nomor_kontrak' => $document->nomor_kontrak,
+                'form_session_id' => $request->form_session_id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+        }
+
+        DB::table('documents_officials')->insert($documentOfficials);
+
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Relasi document-official berhasil diperbarui',
+            'data' => $documentOfficials
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'error' => 'Terjadi kesalahan saat memperbarui relasi document-official',
+            'detail' => $e->getMessage()
+        ], 500);
+    }
+    }
+
+    public function getDocumentBySessionId(Request $request, $formSessionId)
+    {
+        try {
+            $document = Document::where('form_session_id', $formSessionId)->first();
+            
+            if (!$document) {
+                return response()->json([
+                    'exists' => false
+                ]);
+            }
+    
+            return response()->json([
+                'exists' => true,
+                'data' => $document
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat mengecek dokumen',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function addContract(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -690,27 +773,44 @@ class EmployeeController extends Controller
     }
     }
 
-    public function getDocumentData($nomorKontrak)
-    {
-        try {
-            // Get document with related data using relationships
-            $document = Document::with(['vendor', 'officials', 'contracts'])
-                ->where('nomor_kontrak', $nomorKontrak)
-                ->first();
-    
-            if (!$document) {
-                throw new \Exception('Document not found');
-            }
-    
-            return response()->json($document);
-    
-        } catch (\Exception $e) {
+public function getDocumentData($nomorKontrak)
+{
+    try {
+        // Add logging to debug the nomor_kontrak value
+        \Log::info('Fetching document with nomor_kontrak: ' . $nomorKontrak);
+
+        // Get document with all related data using relationships
+        $document = Document::with([
+            'vendor',
+            'officials',
+            'contracts'
+        ])->where('nomor_kontrak', $nomorKontrak)
+            ->first();
+
+        if (!$document) {
+            Log::warning('Document not found for nomor_kontrak: ' . $nomorKontrak);
             return response()->json([
-                'error' => 'Gagal mengambil data',
-                'message' => $e->getMessage()
-            ], 500);
+                'status' => 'error',
+                'message' => 'Document not found with nomor_kontrak: ' . $nomorKontrak
+            ], 404);
         }
+
+        Log::info('Document found:', ['id' => $document->nomor_kontrak]);
+
+        return response()->json($document);
+
+    } catch (\Exception $e) {
+        Log::error('Error fetching document: ' . $e->getMessage(), [
+            'nomor_kontrak' => $nomorKontrak,
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'error' => 'Gagal mengambil data',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function showImage($id)
     {
