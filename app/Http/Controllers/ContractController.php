@@ -102,53 +102,97 @@ class ContractController extends Controller
         }
     }
     
+
+
     public function updateContract(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'contract' => 'required|array',
-            'contract.jenis_kontrak' => 'required|string',
-            'contract.deskripsi' => 'required|string',
-            'contract.jumlah_orang' => 'required|integer',
-            'contract.durasi_kontrak' => 'required|integer',
-            'contract.nilai_kontral_awal' => 'required|numeric',
-            'contract.nilai_kontrak_akhir' => 'required|numeric',
+            'contracts' => 'required|array',
+            'contracts.*.jenis_kontrak' => 'required|string',
+            'contracts.*.deskripsi' => 'required|string',
+            'contracts.*.jumlah_orang' => 'required|integer',
+            'contracts.*.durasi_kontrak' => 'required|integer',
+            'contracts.*.nilai_kontral_awal' => 'required|numeric',
+            'contracts.*.nilai_kontrak_akhir' => 'required|numeric',
         ]);
-    
+
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-    
+
         DB::beginTransaction();
-    
+
         try {
             $formSession = $this->getOrCreateFormSession();
-            $contract = Contract::where('id', $id)
-                              ->where('form_session_id', $formSession->id)
-                              ->firstOrFail();
-    
-            // Update contract
-            $contract->update($request->input('contract'));
-    
+            
+            // Get original contract to verify it exists and belongs to session
+            $originalContract = Contract::where('id', $id)
+                                    ->where('form_session_id', $formSession->id)
+                                    ->firstOrFail();
+
+            $contracts = collect($request->input('contracts'));
+            
+            // Separate existing and new contracts
+            $existingContracts = $contracts->filter(fn($c) => isset($c['id']) && is_string($c['id']) && !empty($c['id']));
+            $newContracts = $contracts->filter(fn($c) => !isset($c['id']) || !is_string($c['id']) || empty($c['id']));
+
+            // Update existing contracts
+            foreach ($existingContracts as $contractData) {
+                $contract = Contract::where('id', $contractData['id'])
+                                ->where('form_session_id', $formSession->id)
+                                ->first();
+                
+                if ($contract) {
+                    $contract->update([
+                        'jenis_kontrak' => $contractData['jenis_kontrak'],
+                        'deskripsi' => $contractData['deskripsi'],
+                        'jumlah_orang' => $contractData['jumlah_orang'],
+                        'durasi_kontrak' => $contractData['durasi_kontrak'],
+                        'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
+                        'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
+                    ]);
+                }
+            }
+
+            // Add new contracts
+            foreach ($newContracts as $contractData) {
+                Contract::create([
+                    'jenis_kontrak' => $contractData['jenis_kontrak'],
+                    'deskripsi' => $contractData['deskripsi'],
+                    'jumlah_orang' => $contractData['jumlah_orang'],
+                    'durasi_kontrak' => $contractData['durasi_kontrak'],
+                    'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
+                    'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
+                    'nomor_kontrak' => $originalContract->nomor_kontrak,
+                    'form_session_id' => $formSession->id
+                ]);
+            }
+
             // Update temp data di session
             $formSession->update([
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
-                    'contract' => $request->input('contract')
+                    'contracts' => $request->input('contracts')
                 ])
             ]);
-    
+
             DB::commit();
-    
+
+            // Get all updated contracts for response
+            $updatedContracts = Contract::where('form_session_id', $formSession->id)
+                                    ->where('nomor_kontrak', $originalContract->nomor_kontrak)
+                                    ->get();
+
             return response()->json([
                 'message' => 'Data kontrak berhasil diperbarui',
                 'data' => [
-                    'contract' => $contract,
+                    'contracts' => $updatedContracts,
                     'session' => [
                         'id' => $formSession->id,
                         'current_step' => $formSession->current_step
                     ]
                 ]
             ]);
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -156,30 +200,76 @@ class ContractController extends Controller
                 'detail' => $e->getMessage()
             ], 500);
         }
-    }
-    
-    public function getContractData()
+    } 
+
+    public function deleteContract(Request $request, $id)
     {
+        DB::beginTransaction();
         try {
             $formSession = $this->getOrCreateFormSession();
-            $contract = $formSession->contract;
             
+            $contract = Contract::where('id', $id)
+                              ->where('form_session_id', $formSession->id)
+                              ->firstOrFail();
+    
+            $contract->delete();
+    
+            // Update temp data di session jika perlu
+            if (isset($formSession->temp_data['contracts']) && is_array($formSession->temp_data['contracts'])) {
+                $contracts = collect($formSession->temp_data['contracts'])
+                    ->filter(function($contract) use ($id) {
+                        return isset($contract['id']) && $contract['id'] !== $id;
+                    })
+                    ->values()
+                    ->all();
+                
+                $tempData = $formSession->temp_data;
+                $tempData['contracts'] = $contracts;
+                
+                $formSession->update([
+                    'temp_data' => $tempData
+                ]);
+            }
+    
+            DB::commit();
+    
             return response()->json([
+                'message' => 'Data kontrak berhasil dihapus',
                 'data' => [
-                    'contract' => $contract,
-                    'session' => [
-                        'id' => $formSession->id,
-                        'current_step' => $formSession->current_step,
-                        'temp_data' => $formSession->temp_data['contract'] ?? null
-                    ]
+                    'deleted_id' => $id
                 ]
             ]);
+    
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
-                'error' => 'Terjadi kesalahan saat mengambil data kontrak',
+                'error' => 'Terjadi kesalahan saat menghapus kontrak',
                 'detail' => $e->getMessage()
             ], 500);
         }
+    }
+    public function getContractData()
+    {
+    try {
+        $formSession = $this->getOrCreateFormSession();
+        $contracts = Contract::where('form_session_id', $formSession->id)->get();
+        
+        return response()->json([
+            'data' => [
+                'contracts' => $contracts,
+                'session' => [
+                    'id' => $formSession->id,
+                    'current_step' => $formSession->current_step,
+                    'temp_data' => $formSession->temp_data['contracts'] ?? null
+                ]
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Terjadi kesalahan saat mengambil data kontrak',
+            'detail' => $e->getMessage()
+        ], 500);
+    }
     }
 
     public function completeForm(Request $request)

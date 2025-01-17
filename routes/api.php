@@ -77,6 +77,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     //Contract routes
     Route::post('/add-contract', [ContractController::class, 'addContract']);
     Route::put('/update-contract/{id}', [ContractController::class, 'updateContract']);
+    Route::delete('/delete-contract/{id}', [ContractController::class, 'deleteContract']);
     Route::get('/get-contract', [ContractController::class, 'getContractData']);
     Route::post('/complete-form', [ContractController::class, 'completeForm']);
     Route::post('/clear-form', [ContractController::class, 'clearFormSession']);
