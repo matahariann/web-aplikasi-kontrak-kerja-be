@@ -14,7 +14,8 @@ return new class extends Migration
     public function up()
     {
         Schema::create('documents', function (Blueprint $table) {
-            $table->string('nomor_kontrak')->primary();
+            $table->id();  // Add auto-incrementing primary key
+            $table->string('nomor_kontrak')->unique();  // Change to unique instead of primary
             $table->date('tanggal_kontrak');
             $table->string('paket_pekerjaan');
             $table->year('tahun_anggaran');

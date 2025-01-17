@@ -10,9 +10,6 @@ class Document extends Model
     use HasFactory;
 
     protected $table = 'documents';
-    protected $primaryKey = 'nomor_kontrak';
-    public $incrementing = false;
-    protected $keyType = 'string';
     protected $fillable = [
         'nomor_kontrak',
         'tanggal_kontrak',
@@ -49,7 +46,7 @@ class Document extends Model
 
     public function contracts()
     {
-        return $this->hasMany(Contract::class, 'nomor_kontrak', 'nomor_kontrak');
+        return $this->hasMany(Contract::class, 'document_id', 'id');
     }
 
     public function vendor()
@@ -59,7 +56,7 @@ class Document extends Model
 
     public function officials()
     {
-        return $this->belongsToMany(Official::class, 'documents_officials', 'nomor_kontrak', 'official_id')
+        return $this->belongsToMany(Official::class, 'documents_officials', 'document_id', 'official_id')
                     ->withTimestamps();
     }
 

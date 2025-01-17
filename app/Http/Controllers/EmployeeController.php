@@ -49,62 +49,110 @@ class EmployeeController extends Controller
     public function getData()
     {
         try {
-            $documents = Document::with([
-                'vendor:id,nama_vendor',
-                'officials:officials.id,nip,nama,jabatan,periode_jabatan',
-                'contracts:id,nomor_kontrak,jenis_kontrak,deskripsi,nilai_kontral_awal,nilai_kontrak_akhir'
-            ])
-            ->select(
-                'nomor_kontrak',
-                'tanggal_kontrak',
-                'paket_pekerjaan',
-                'tahun_anggaran',
-                'vendor_id'
-            )
-            ->orderBy('created_at', 'desc')
-            ->get();
-    
-            if ($documents->isEmpty()) {
-                return response()->json([]);
-            }
-    
-            return response()->json($documents);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Gagal mengambil data dokumen',
-                'detail' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function getDataDetail($nomorKontrak)
-    {
-        try {
-            $document = Document::with([
-                'vendor',
-                'officials',
-                'contracts'
-            ])
-            ->where('nomor_kontrak', $nomorKontrak)
-            ->firstOrFail();
-    
-            if (!$document) {
-                return response()->json([
-                    'error' => 'Dokumen tidak ditemukan'
-                ], 404);
-            }
+            // Query utama dengan eager loading yang dioptimasi
+            $documents = Document::query()
+                ->select([
+                    'documents.id',
+                    'documents.nomor_kontrak',
+                    'documents.tanggal_kontrak',
+                    'documents.paket_pekerjaan',
+                    'documents.tahun_anggaran',
+                    'documents.vendor_id'
+                ])
+                ->with([
+                    'vendor' => function ($query) {
+                        $query->select('id', 'nama_vendor');
+                    },
+                    'officials' => function ($query) {
+                        $query->select('officials.id', 'nip', 'nama', 'jabatan', 'periode_jabatan');
+                    },
+                    'contracts' => function ($query) {
+                        $query->select(
+                            'id',
+                            'document_id',
+                            'jenis_kontrak',
+                            'deskripsi',
+                            'nilai_kontral_awal',
+                            'nilai_kontrak_akhir'
+                        );
+                    }
+                ])
+                ->whereNotNull('form_session_id') // Hanya ambil dokumen yang sudah selesai
+                ->orderBy('created_at', 'desc')
+                ->get();
     
             return response()->json([
-                'document' => $document,
-                'vendor' => $document->vendor,
-                'officials' => $document->officials,
-                'contracts' => $document->contracts
+                'status' => 'success',
+                'data' => $documents,
+                'message' => 'Data dokumen berhasil diambil'
             ]);
     
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Gagal mengambil detail dokumen',
-                'detail' => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Gagal mengambil data dokumen',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getDataDetail($id)
+    {
+        try {
+            $document = Document::query()
+                ->with([
+                    'vendor' => function ($query) {
+                        $query->select(
+                            'id', 
+                            'nama_vendor', 
+                            'alamat_vendor', 
+                            'npwp', 
+                            'bank_vendor', 
+                            'norek_vendor', 
+                            'nama_rek_vendor'
+                        );
+                    },
+                    'officials' => function ($query) {
+                        $query->select(
+                            'officials.id', 
+                            'nip', 
+                            'nama', 
+                            'jabatan', 
+                            'periode_jabatan', 
+                            'surat_keputusan'
+                        );
+                    },
+                    'contracts' => function ($query) {
+                        $query->select(
+                            'id',
+                            'document_id',
+                            'jenis_kontrak',
+                            'deskripsi',
+                            'jumlah_orang',
+                            'durasi_kontrak',
+                            'nilai_kontral_awal',
+                            'nilai_kontrak_akhir'
+                        );
+                    }
+                ])
+                ->findOrFail($id);
+    
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'document' => $document,
+                    'vendor' => $document->vendor,
+                    'officials' => $document->officials,
+                    'contracts' => $document->contracts
+                ],
+                'message' => 'Detail dokumen berhasil diambil'
+            ]);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal mengambil detail dokumen',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

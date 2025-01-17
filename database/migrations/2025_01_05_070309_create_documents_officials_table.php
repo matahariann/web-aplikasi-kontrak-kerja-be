@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('documents_officials', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('official_id'); // Reference to officials.id
-            $table->string('nomor_kontrak');
+            $table->unsignedBigInteger('official_id');
+            $table->unsignedBigInteger('document_id'); 
             $table->uuid('form_session_id')->nullable();
             $table->timestamps();
 
@@ -25,11 +25,10 @@ return new class extends Migration
                   ->on('officials')
                   ->onDelete('cascade');
 
-                  $table->foreign('nomor_kontrak')
-                  ->references('nomor_kontrak')
+            $table->foreign('document_id') 
+                  ->references('id')
                   ->on('documents')
-                  ->onDelete('cascade')
-                  ->onUpdate('cascade');
+                  ->onDelete('cascade');
         });
     }
 
@@ -42,7 +41,7 @@ return new class extends Migration
     {
         Schema::table('documents_officials', function (Blueprint $table) {
             $table->dropForeign(['official_id']);
-            $table->dropForeign(['nomor_kontrak']);
+            $table->dropForeign(['document_id']);
         });
 
         Schema::dropIfExists('documents_officials');

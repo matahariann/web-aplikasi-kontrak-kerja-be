@@ -38,6 +38,7 @@ class DocumentController extends Controller
         
         return $activeSession;
     }
+    
     public function addDocument(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -116,7 +117,6 @@ class DocumentController extends Controller
             ]);
     
             $document = Document::create($documentData);
-            $officials = Official::where('form_session_id', $formSession->id)->get();
     
             // Attach officials ke document dengan tambahan form_session_id
             $pivotData = array_fill(0, count($officials), [
@@ -125,7 +125,7 @@ class DocumentController extends Controller
                 'updated_at' => now()
             ]);
             
-            $document->officials()->attach(array_combine($officials->pluck('id')->toArray(), $pivotData));
+            $document->officials()->attach(array_combine($officials, $pivotData));
     
             // Update session data
             $formSession->update([
@@ -161,7 +161,7 @@ class DocumentController extends Controller
         }
     }
 
-    public function updateDocument(Request $request, $nomor_kontrak)
+    public function updateDocument(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:1',
@@ -171,7 +171,7 @@ class DocumentController extends Controller
             'document.nomor_kontrak' => [
                 'required',
                 'string',
-                ValidationRule::unique('documents', 'nomor_kontrak')->ignore($nomor_kontrak, 'nomor_kontrak')
+                ValidationRule::unique('documents', 'nomor_kontrak')->ignore($id)
             ],
             'document.tanggal_kontrak' => 'required|date',
             'document.paket_pekerjaan' => 'required|string',
@@ -210,90 +210,47 @@ class DocumentController extends Controller
 
         try {
             $formSession = $this->getOrCreateFormSession();
-            $document = Document::where('nomor_kontrak', $nomor_kontrak)
+            $document = Document::where('id', $id)
                               ->where('form_session_id', $formSession->id)
                               ->firstOrFail();
-    
-            // Get the new contract number
-            $newNomorKontrak = $request->input('document.nomor_kontrak');
-            
-            if ($nomor_kontrak !== $newNomorKontrak) {
-                // If contract number is changing, we need to:
-                // 1. Create a new document with the new contract number
-                $documentData = $request->input('document');
-                $newDocument = Document::create([
-                    ...$documentData,
-                    'vendor_id' => $document->vendor_id,
-                    'form_session_id' => $formSession->id
-                ]);
-    
-                // 2. Move all related records to new document
-                // Update officials
-                $officials = [];
-                foreach ($request->input('officials') as $officialData) {
-                    $official = Official::where('form_session_id', $formSession->id)
-                                    ->where('nip', $officialData['nip'])
-                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                    ->first();
-    
-                    if ($official) {
-                        $officials[] = $official->id;
-                    }
+
+            // Update document data
+            $documentData = $request->input('document');
+            $document->update($documentData);
+
+            // Update officials
+            $officials = [];
+            foreach ($request->input('officials') as $officialData) {
+                $official = Official::where('form_session_id', $formSession->id)
+                                ->where('nip', $officialData['nip'])
+                                ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                ->first();
+
+                if ($official) {
+                    $officials[] = $official->id;
                 }
-    
-                // Sync officials with the new document
-                $pivotData = array_fill(0, count($officials), [
-                    'form_session_id' => $formSession->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-                
-                $newDocument->officials()->sync(array_combine($officials, $pivotData));
-    
-                // 3. Delete the old document
-                $document->delete();
-    
-                $document = $newDocument;
-            } else {
-                // If not changing contract number, proceed with normal update
-                $documentData = $request->input('document');
-                $document->update($documentData);
-    
-                // Update officials as before
-                $officials = [];
-                foreach ($request->input('officials') as $officialData) {
-                    $official = Official::where('form_session_id', $formSession->id)
-                                    ->where('nip', $officialData['nip'])
-                                    ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                    ->first();
-    
-                    if ($official) {
-                        $officials[] = $official->id;
-                    }
-                }
-    
-                $pivotData = array_fill(0, count($officials), [
-                    'form_session_id' => $formSession->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-                
-                $document->officials()->sync(array_combine($officials, $pivotData));
             }
-    
-            // Update temp data di session
+
+            $pivotData = array_fill(0, count($officials), [
+                'form_session_id' => $formSession->id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            $document->officials()->sync(array_combine($officials, $pivotData));
+
+            // Update session data
             $formSession->update([
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
                     'document' => $request->input('document'),
                     'officials' => $request->input('officials')
                 ])
             ]);
-    
+
             DB::commit();
-    
-            // Load relasi untuk response
+
             $document->load(['vendor', 'officials']);
-    
+
             return response()->json([
                 'message' => 'Data dokumen berhasil diperbarui',
                 'data' => [
@@ -304,7 +261,7 @@ class DocumentController extends Controller
                     ]
                 ]
             ]);
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -314,11 +271,12 @@ class DocumentController extends Controller
         }
     }
 
+
     public function getDocumentData()
     {
         try {
             $formSession = $this->getOrCreateFormSession();
-            $document = $formSession->document;
+            $document = Document::where('form_session_id', $formSession->id)->first();
             
             return response()->json([
                 'data' => [

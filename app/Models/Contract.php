@@ -17,14 +17,14 @@ class Contract extends Model
         'durasi_kontrak',
         'nilai_kontral_awal',
         'nilai_kontrak_akhir',
-        'nomor_kontrak',
+        'document_id',
         'form_session_id',
     ];
     protected $guarded = [];
 
     public function document()
     {
-        return $this->belongsTo(Document::class, 'nomor_kontrak', 'nomor_kontrak');
+        return $this->belongsTo(Document::class, 'document_id', 'document_id');
     }
 
     public function formSession()

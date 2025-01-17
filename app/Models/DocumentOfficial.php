@@ -13,13 +13,13 @@ class DocumentOfficial extends Model
 
     protected $fillable = [
         'official_id',
-        'nomor_kontrak',
+        'document_id',
         'form_session_id',
     ];
 
     public function document()
     {
-        return $this->belongsTo(Document::class, 'nomor_kontrak', 'nomor_kontrak');
+        return $this->belongsTo(Document::class, 'document_id', 'document_id');
     }
 
     public function official()

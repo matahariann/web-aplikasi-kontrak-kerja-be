@@ -66,7 +66,7 @@ class ContractController extends Controller
     
             // Simpan data contract
             $contractData = array_merge($request->input('contract'), [
-                'nomor_kontrak' => $document->nomor_kontrak,
+                'document_id' => $document->id,  // Menggunakan document id
                 'form_session_id' => $formSession->id
             ]);
     
@@ -163,7 +163,7 @@ class ContractController extends Controller
                     'durasi_kontrak' => $contractData['durasi_kontrak'],
                     'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
                     'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
-                    'nomor_kontrak' => $originalContract->nomor_kontrak,
+                    'document_id' => $originalContract->document_id, 
                     'form_session_id' => $formSession->id
                 ]);
             }
@@ -179,8 +179,8 @@ class ContractController extends Controller
 
             // Get all updated contracts for response
             $updatedContracts = Contract::where('form_session_id', $formSession->id)
-                                    ->where('nomor_kontrak', $originalContract->nomor_kontrak)
-                                    ->get();
+                                        ->where('document_id', $originalContract->document_id)
+                                        ->get();
 
             return response()->json([
                 'message' => 'Data kontrak berhasil diperbarui',

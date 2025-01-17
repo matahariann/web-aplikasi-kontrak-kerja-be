@@ -21,15 +21,14 @@ return new class extends Migration
             $table->integer('durasi_kontrak');
             $table->integer('nilai_kontral_awal');
             $table->integer('nilai_kontrak_akhir');
-            $table->string('nomor_kontrak');
+            $table->unsignedBigInteger('document_id'); 
             $table->uuid('form_session_id')->nullable();
             $table->timestamps();
 
-            $table->foreign('nomor_kontrak')
-            ->references('nomor_kontrak')
-            ->on('documents')
-            ->onDelete('cascade')
-            ->onUpdate('cascade');
+            $table->foreign('document_id') 
+                  ->references('id')
+                  ->on('documents')
+                  ->onDelete('cascade');
         });
     }
 
