@@ -33,27 +33,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Employee routes
     Route::get('/employee/authenticated', [EmployeeController::class, 'getAuthenticatedEmployee']);
-
-    Route::post('/addVendor', [EmployeeController::class, 'addVendor']);
-    Route::put('/updateVendor/{id}', [EmployeeController::class, 'updateVendor']);
-
-    Route::post('/addOfficial', [EmployeeController::class, 'addOfficial']);
-    Route::put('/updateOfficial/{id}', [EmployeeController::class, 'updateOfficial']);
-    Route::post('/updateDocumentOfficial', [EmployeeController::class, 'updateDocumentOfficial']);
-    Route::get('/checkDocument/{formSessionId}', [EmployeeController::class, 'getDocumentBySessionId']);
-    Route::get('/getPeriodes', [EmployeeController::class, 'getPeriodes']);
-    Route::get('/getOfficialsByPeriode/{periode}', [EmployeeController::class, 'getOfficialsByPeriode']);
-
-    Route::post('/addDocument', [EmployeeController::class, 'addDocument']);
-    Route::put('/updateDocument/{id}', [EmployeeController::class, 'updateDocument']);
-
-    Route::post('/addContract', [EmployeeController::class, 'addContract']);
-    Route::put('/updateContract/{id}', [EmployeeController::class, 'updateContract']);
-    Route::delete('/deleteContract/{id}', [EmployeeController::class, 'deleteContract']);
-
-    Route::get('/session-data/{sessionId}', [EmployeeController::class, 'getSessionData']);
-    Route::get('/document-data/{nomorKontrak}', [EmployeeController::class, 'getDocumentData']);
     Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
+    Route::get('/get-data', [EmployeeController::class, 'getData']);
+    Route::get('/get-data-detail/{nomorKontrak}', [EmployeeController::class, 'getDataDetail']);
 
     // Vendor routes
     Route::post('/add-vendor', [VendorController::class, 'addVendor']);
