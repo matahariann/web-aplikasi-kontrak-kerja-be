@@ -62,6 +62,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Official routes
     Route::post('/add-official', [OfficialController::class, 'addOfficial']);
+    Route::put('/update-session/{id}', [OfficialController::class, 'updateSession']);
+    Route::put('/update-official-session/{id}', [OfficialController::class, 'updateOfficialSession']);
     Route::put('/update-official/{id}', [OfficialController::class, 'updateOfficial']);
     Route::get('/get-official', [OfficialController::class, 'getOfficialData']);
     Route::get('/get-periode', [OfficialController::class, 'getPeriodes']);
