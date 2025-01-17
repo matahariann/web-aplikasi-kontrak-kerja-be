@@ -288,7 +288,6 @@ class EmployeeController extends Controller
     }
     }
 
-// EmployeeController.php - Tambah method baru
 
 public function updateDocumentOfficial(Request $request)
 {
@@ -773,44 +772,44 @@ public function updateDocumentOfficial(Request $request)
     }
     }
 
-public function getDocumentData($nomorKontrak)
-{
-    try {
-        // Add logging to debug the nomor_kontrak value
-        \Log::info('Fetching document with nomor_kontrak: ' . $nomorKontrak);
+    public function getDocumentData($nomorKontrak)
+    {
+        try {
+            // Add logging to debug the nomor_kontrak value
+            Log::info('Fetching document with nomor_kontrak: ' . $nomorKontrak);
 
-        // Get document with all related data using relationships
-        $document = Document::with([
-            'vendor',
-            'officials',
-            'contracts'
-        ])->where('nomor_kontrak', $nomorKontrak)
-            ->first();
+            // Get document with all related data using relationships
+            $document = Document::with([
+                'vendor',
+                'officials',
+                'contracts'
+            ])->where('nomor_kontrak', $nomorKontrak)
+                ->first();
 
-        if (!$document) {
-            Log::warning('Document not found for nomor_kontrak: ' . $nomorKontrak);
+            if (!$document) {
+                Log::warning('Document not found for nomor_kontrak: ' . $nomorKontrak);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Document not found with nomor_kontrak: ' . $nomorKontrak
+                ], 404);
+            }
+
+            Log::info('Document found:', ['id' => $document->nomor_kontrak]);
+
+            return response()->json($document);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching document: ' . $e->getMessage(), [
+                'nomor_kontrak' => $nomorKontrak,
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
-                'status' => 'error',
-                'message' => 'Document not found with nomor_kontrak: ' . $nomorKontrak
-            ], 404);
+                'error' => 'Gagal mengambil data',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        Log::info('Document found:', ['id' => $document->nomor_kontrak]);
-
-        return response()->json($document);
-
-    } catch (\Exception $e) {
-        Log::error('Error fetching document: ' . $e->getMessage(), [
-            'nomor_kontrak' => $nomorKontrak,
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'error' => 'Gagal mengambil data',
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
 
     public function showImage($id)
     {

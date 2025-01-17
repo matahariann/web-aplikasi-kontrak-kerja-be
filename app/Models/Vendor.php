@@ -28,4 +28,9 @@ class Vendor extends Model
     {
         return $this->hasOne(Document::class, 'id_vendor', 'id');
     }
+
+    public function formSession()
+    {
+        return $this->belongsTo(FormSession::class, 'form_session_id', 'id');
+    }
 }

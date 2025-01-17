@@ -48,4 +48,16 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function formSessions()
+    {
+        return $this->hasMany(FormSession::class, 'nip', 'nip');
+    }
+
+    public function activeFormSession()
+    {
+        return $this->hasOne(FormSession::class, 'nip', 'nip')
+                    ->where('is_completed', false)
+                    ->latest();
+    }
 }

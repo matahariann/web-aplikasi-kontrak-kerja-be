@@ -62,4 +62,9 @@ class Document extends Model
         return $this->belongsToMany(Official::class, 'documents_officials', 'nomor_kontrak', 'official_id')
                     ->withTimestamps();
     }
+
+    public function formSession()
+    {
+        return $this->belongsTo(FormSession::class, 'form_session_id', 'id');
+    }
 }

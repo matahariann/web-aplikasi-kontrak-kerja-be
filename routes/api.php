@@ -7,6 +7,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\OfficialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
+use App\Models\Official;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -54,6 +55,27 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/document-data/{nomorKontrak}', [EmployeeController::class, 'getDocumentData']);
     Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
 
-    // Documents routes
-    Route::get('/documents', [DocumentController::class, 'index']);
+    // Vendor routes
+    Route::post('/add-vendor', [VendorController::class, 'addVendor']);
+    Route::put('/update-vendor', [VendorController::class, 'updateVendor']);
+    Route::get('/get-vendor', [VendorController::class, 'getVendorData']);
+
+    // Official routes
+    Route::post('/add-official', [OfficialController::class, 'addOfficial']);
+    Route::put('/update-official/{id}', [OfficialController::class, 'updateOfficial']);
+    Route::get('/get-official', [OfficialController::class, 'getOfficialData']);
+    Route::get('/get-periode', [OfficialController::class, 'getPeriodes']);
+    Route::get('/get-official-by-periode/{id}', [OfficialController::class, 'getOfficialsByPeriode']);
+
+    // Document routes
+    Route::post('/add-document', [DocumentController::class, 'addDocument']);
+    Route::put('/update-document/{id}', [DocumentController::class, 'updateDocument']);
+    Route::get('/get-document', [DocumentController::class, 'getDocumentData']);
+
+    //Contract routes
+    Route::post('/add-contract', [ContractController::class, 'addContract']);
+    Route::put('/update-contract/{id}', [ContractController::class, 'updateContract']);
+    Route::get('/get-contract', [ContractController::class, 'getContractData']);
+    Route::post('/complete-form', [ContractController::class, 'completeForm']);
+    Route::post('/clear-form', [ContractController::class, 'clearFormSession']);
 });
