@@ -105,7 +105,9 @@ class EmployeeController extends Controller
                         $query->select(
                             'id', 
                             'nama_vendor', 
-                            'alamat_vendor', 
+                            'alamat_vendor',
+                            'nama_pj',
+                            'jabatan_pj', 
                             'npwp', 
                             'bank_vendor', 
                             'norek_vendor', 
