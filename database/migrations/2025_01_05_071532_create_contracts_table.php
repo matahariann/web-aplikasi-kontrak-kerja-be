@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('deskripsi');
             $table->integer('jumlah_orang');
             $table->integer('durasi_kontrak');
+            $table->integer('nilai_perkiraan_sendiri');
             $table->integer('nilai_kontral_awal');
             $table->integer('nilai_kontrak_akhir');
             $table->unsignedBigInteger('document_id'); 

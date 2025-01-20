@@ -43,6 +43,7 @@ class ContractController extends Controller
             'contract.deskripsi' => 'required|string',
             'contract.jumlah_orang' => 'required|integer',
             'contract.durasi_kontrak' => 'required|integer',
+            'contract.nilai_perkiraan_sendiri' => 'required|numeric',
             'contract.nilai_kontral_awal' => 'required|numeric',
             'contract.nilai_kontrak_akhir' => 'required|numeric',
         ]);
@@ -112,6 +113,7 @@ class ContractController extends Controller
             'contracts.*.deskripsi' => 'required|string',
             'contracts.*.jumlah_orang' => 'required|integer',
             'contracts.*.durasi_kontrak' => 'required|integer',
+            'contracts.*.nilai_perkiraan_sendiri' => 'required|numeric',
             'contracts.*.nilai_kontral_awal' => 'required|numeric',
             'contracts.*.nilai_kontrak_akhir' => 'required|numeric',
         ]);
@@ -148,6 +150,7 @@ class ContractController extends Controller
                         'deskripsi' => $contractData['deskripsi'],
                         'jumlah_orang' => $contractData['jumlah_orang'],
                         'durasi_kontrak' => $contractData['durasi_kontrak'],
+                        'nilai_perkiraan_sendiri' => $contractData['nilai_perkiraan_sendiri'],
                         'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
                         'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
                     ]);
@@ -161,6 +164,7 @@ class ContractController extends Controller
                     'deskripsi' => $contractData['deskripsi'],
                     'jumlah_orang' => $contractData['jumlah_orang'],
                     'durasi_kontrak' => $contractData['durasi_kontrak'],
+                    'nilai_perkiraan_sendiri' => $contractData['nilai_perkiraan_sendiri'],
                     'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
                     'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
                     'document_id' => $originalContract->document_id, 

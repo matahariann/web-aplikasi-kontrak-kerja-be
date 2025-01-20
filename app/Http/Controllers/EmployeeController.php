@@ -72,6 +72,7 @@ class EmployeeController extends Controller
                             'document_id',
                             'jenis_kontrak',
                             'deskripsi',
+                            'nilai_perkiraan_sendiri',
                             'nilai_kontral_awal',
                             'nilai_kontrak_akhir'
                         );
@@ -132,6 +133,7 @@ class EmployeeController extends Controller
                             'deskripsi',
                             'jumlah_orang',
                             'durasi_kontrak',
+                            'nilai_perkiraan_sendiri',
                             'nilai_kontral_awal',
                             'nilai_kontrak_akhir'
                         );
