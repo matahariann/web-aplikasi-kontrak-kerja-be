@@ -156,20 +156,22 @@ class OfficialController extends Controller
     
     public function addOfficial(Request $request)
     {
+        // Validasi request harus berupa array dari officials
         $validator = Validator::make($request->all(), [
-            'nip' => 'required|string',
-            'nama' => 'required|string',
-            'jabatan' => 'required|string',
-            'periode_jabatan' => 'required|string',
-            'surat_keputusan' => 'nullable|string',
+            'officials' => 'required|array|min:2',
+            'officials.*.nip' => 'required|string',
+            'officials.*.nama' => 'required|string',
+            'officials.*.jabatan' => 'required|string',
+            'officials.*.periode_jabatan' => 'required|string',
+            'officials.*.surat_keputusan' => 'nullable|string',
         ]);
         
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-    
+
         DB::beginTransaction();
-    
+
         try {
             $formSession = $this->getOrCreateFormSession();
             
@@ -181,42 +183,62 @@ class OfficialController extends Controller
                 ], 400);
             }
 
-            // Cek duplikasi NIP dan periode
-            $exists = Official::where('nip', $request->nip)
-                            ->where('periode_jabatan', $request->periode_jabatan)
-                            ->exists();
-            if ($exists) {
+            $officials = collect($request->officials);
+            
+            // Cek duplikasi NIP di antara officials yang akan disimpan
+            $nips = $officials->pluck('nip');
+            if ($nips->count() !== $nips->unique()->count()) {
+                DB::rollBack();
                 return response()->json([
-                    'error' => 'Kombinasi NIP dan Periode Jabatan sudah ada'
+                    'error' => 'Terdapat NIP yang sama antar pejabat'
                 ], 400);
             }
 
-            // Hapus data official lama dengan jabatan yang sama (jika ada)
+            // Cek duplikasi NIP dan periode untuk setiap official
+            foreach ($officials as $officialData) {
+                $exists = Official::where('nip', $officialData['nip'])
+                                ->where('periode_jabatan', $officialData['periode_jabatan'])
+                                ->exists();
+                if ($exists) {
+                    DB::rollBack();
+                    return response()->json([
+                        'error' => "Kombinasi NIP {$officialData['nip']} dan Periode Jabatan sudah ada"
+                    ], 400);
+                }
+            }
+
+            // Hapus semua official lama dalam session ini
             Official::where('form_session_id', $formSession->id)
-            ->where('jabatan', $request->jabatan)
-            ->update(['form_session_id' => null]);
+                   ->update(['form_session_id' => null]);
 
-
-            // Simpan data official
-            $official = Official::create(array_merge(
-                $request->all(),
-                ['form_session_id' => $formSession->id]
-            ));
+            // Simpan semua official baru
+            $savedOfficials = collect();
+            foreach ($officials as $officialData) {
+                $official = Official::create([
+                    'nip' => $officialData['nip'],
+                    'nama' => $officialData['nama'],
+                    'jabatan' => $officialData['jabatan'],
+                    'periode_jabatan' => $officialData['periode_jabatan'],
+                    'surat_keputusan' => $officialData['surat_keputusan'] ?? null,
+                    'form_session_id' => $formSession->id
+                ]);
+                $savedOfficials->push($official);
+            }
 
             // Update session data
             $formSession->update([
                 'current_step' => 'document',
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
-                    'official' => $request->all()
+                    'officials' => $request->officials
                 ])
             ]);
-    
+
             DB::commit();
-    
+
             return response()->json([
                 'message' => 'Data pejabat berhasil disimpan',
                 'data' => [
-                    'official' => $official,
+                    'officials' => $savedOfficials,
                     'session' => [
                         'id' => $formSession->id,
                         'current_step' => $formSession->current_step
