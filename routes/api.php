@@ -41,6 +41,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/add-vendor', [VendorController::class, 'addVendor']);
     Route::put('/update-vendor', [VendorController::class, 'updateVendor']);
     Route::get('/get-vendor', [VendorController::class, 'getVendorData']);
+    Route::delete("/delete-vendor/{id}", [VendorController::class, 'deleteVendor']);
 
     // Official routes
     Route::post('/add-official', [OfficialController::class, 'addOfficial']);

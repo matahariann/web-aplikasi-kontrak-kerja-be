@@ -25,6 +25,11 @@ return new class extends Migration
             $table->string('nama_rek_vendor');
             $table->uuid('form_session_id');
             $table->timestamps();
+
+            $table->foreignId('document_id')
+                    ->nullable()
+                    ->constrained('documents')
+                    ->onDelete('cascade');
         });
     }
 
@@ -36,5 +41,9 @@ return new class extends Migration
     public function down()
     {
         Schema::dropIfExists('vendors');
+
+        Schema::table('vendors', function (Blueprint $table) {
+            $table->dropForeign(['document_id']);
+        });
     }
 };

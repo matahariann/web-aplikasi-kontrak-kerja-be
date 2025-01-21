@@ -2,22 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Contract;
 use App\Models\Document;
-use App\Models\DocumentOfficial;
 use App\Models\Images;
-use App\Models\Official;
-use App\Models\User;
-use App\Models\Vendor;
-use Illuminate\Contracts\Validation\Rule;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule as ValidationRule;
-use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
@@ -56,12 +43,12 @@ class EmployeeController extends Controller
                     'documents.nomor_kontrak',
                     'documents.tanggal_kontrak',
                     'documents.paket_pekerjaan',
-                    'documents.tahun_anggaran',
-                    'documents.vendor_id'
+                    'documents.tahun_anggaran'
+                    // Hapus vendor_id karena sekarang one-to-many
                 ])
                 ->with([
-                    'vendor' => function ($query) {
-                        $query->select('id', 'nama_vendor');
+                    'vendor' => function ($query) {  // Ubah ke vendor (plural)
+                        $query->select('id', 'nama_vendor', 'document_id'); // Tambah document_id
                     },
                     'officials' => function ($query) {
                         $query->select('officials.id', 'nip', 'nama', 'jabatan', 'periode_jabatan');
@@ -78,7 +65,7 @@ class EmployeeController extends Controller
                         );
                     }
                 ])
-                ->whereNotNull('form_session_id') // Hanya ambil dokumen yang sudah selesai
+                ->whereNotNull('form_session_id')
                 ->orderBy('created_at', 'desc')
                 ->get();
     
@@ -102,9 +89,10 @@ class EmployeeController extends Controller
         try {
             $document = Document::query()
                 ->with([
-                    'vendor' => function ($query) {
+                    'vendor' => function ($query) {  // Ubah ke vendor (plural)
                         $query->select(
                             'id', 
+                            'document_id', // Tambah document_id
                             'nama_vendor', 
                             'alamat_vendor',
                             'nama_pj',
@@ -141,11 +129,12 @@ class EmployeeController extends Controller
                 ])
                 ->findOrFail($id);
     
+            // Format response untuk menyertakan multiple vendors
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'document' => $document,
-                    'vendor' => $document->vendor,
+                    'vendors' => $document->vendor, // Ubah ke plural untuk konsistensi
                     'officials' => $document->officials,
                     'contracts' => $document->contracts
                 ],

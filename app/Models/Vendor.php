@@ -19,6 +19,7 @@ class Vendor extends Model
         'bank_vendor',
         'norek_vendor',
         'nama_rek_vendor',
+        'document_id',
         'form_session_id',
     ];
 
@@ -26,7 +27,7 @@ class Vendor extends Model
 
     public function document()
     {
-        return $this->hasOne(Document::class, 'id_vendor', 'id');
+        return $this->belongsTo(Document::class, 'document_id', 'id');
     }
 
     public function formSession()

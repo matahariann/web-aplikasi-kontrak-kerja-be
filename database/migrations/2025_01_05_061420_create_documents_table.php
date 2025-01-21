@@ -27,8 +27,6 @@ return new class extends Migration
             $table->date('tanggal_selesai');
             $table->string('nomor_pph1');
             $table->date('tanggal_pph1');
-            // $table->string('nomor_pph2');
-            // $table->date('tanggal_pph2');
             $table->string('nomor_ukn');
             $table->date('tanggal_ukn');
             $table->date('tanggal_undangan_ukn');
@@ -45,11 +43,8 @@ return new class extends Migration
             $table->string('nomor_dipa');
             $table->date('tanggal_dipa');
             $table->string('kode_kegiatan');
-            $table->unsignedBigInteger('vendor_id');
             $table->uuid('form_session_id')->nullable();        
             $table->timestamps();
-
-            $table->foreign('vendor_id')->references('id')->on('vendors')->onDelete('cascade');
         });
     }
 
@@ -61,9 +56,5 @@ return new class extends Migration
     public function down()
     {
         Schema::dropIfExists('documents');
-
-        Schema::table('documents', function (Blueprint $table) {
-            $table->dropForeign(['vendor_id']);
-        });
     }
 };

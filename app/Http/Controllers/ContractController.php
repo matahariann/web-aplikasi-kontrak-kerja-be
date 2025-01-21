@@ -103,8 +103,6 @@ class ContractController extends Controller
         }
     }
     
-
-
     public function updateContract(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [

@@ -23,8 +23,6 @@ class Document extends Model
         'tanggal_selesai',
         'nomor_pph1',
         'tanggal_pph1',
-        // 'nomor_pph2',
-        // 'tanggal_pph2',
         'nomor_ukn',
         'tanggal_ukn',
         'tanggal_undangan_ukn',
@@ -41,7 +39,6 @@ class Document extends Model
         'nomor_dipa',
         'tanggal_dipa',
         'kode_kegiatan',
-        'vendor_id',
         'form_session_id',
     ];
 
@@ -54,7 +51,7 @@ class Document extends Model
 
     public function vendor()
     {
-        return $this->belongsTo(Vendor::class, 'vendor_id', 'id');
+        return $this->hasMany(Vendor::class, 'document_id', 'id');
     }
 
     public function officials()

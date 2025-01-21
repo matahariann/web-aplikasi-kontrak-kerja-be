@@ -38,14 +38,15 @@ class VendorController extends Controller
     public function addVendor(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama_vendor' => 'required|string',
-            'alamat_vendor' => 'required|string',
-            'nama_pj' => 'required|string',
-            'jabatan_pj' => 'required|string',
-            'npwp' => 'required|string',
-            'bank_vendor' => 'required|string',
-            'norek_vendor' => 'required|string',
-            'nama_rek_vendor' => 'required|string',
+            'vendors' => 'required|array',
+            'vendors.nama_vendor' => 'required|string',
+            'vendors.alamat_vendor' => 'required|string',
+            'vendors.nama_pj' => 'required|string',
+            'vendors.jabatan_pj' => 'required|string',
+            'vendors.npwp' => 'required|string',
+            'vendors.bank_vendor' => 'required|string',
+            'vendors.norek_vendor' => 'required|string',
+            'vendors.nama_rek_vendor' => 'required|string',
         ]);
     
         if ($validator->fails()) {
@@ -57,17 +58,14 @@ class VendorController extends Controller
         try {
             $formSession = $this->getOrCreateFormSession();
             
-            // Simpan data vendor
-            $vendor = Vendor::create(array_merge(
-                $request->all(),
-                ['form_session_id' => $formSession->id]
-            ));
+            $vendor = Vendor::create(array_merge($request->input('vendors'), [
+                'form_session_id' => $formSession->id
+            ]));
             
-            // Update session
             $formSession->update([
                 'current_step' => 'official',
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
-                    'vendor' => $request->all()
+                    'vendors' => $request->input('vendors')
                 ])
             ]);
             
@@ -76,7 +74,7 @@ class VendorController extends Controller
             return response()->json([
                 'message' => 'Data vendor berhasil disimpan',
                 'data' => [
-                    'vendor' => $vendor,
+                    'vendors' => $vendor,
                     'session_id' => $formSession->id
                 ]
             ], 201);
@@ -92,18 +90,22 @@ class VendorController extends Controller
 
     public function updateVendor(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'nama_vendor' => 'required|string',
-            'alamat_vendor' => 'required|string',
-            'nama_pj' => 'required|string',
-            'jabatan_pj' => 'required|string',
-            'npwp' => 'required|string',
-            'bank_vendor' => 'required|string',
-            'norek_vendor' => 'required|string',
-            'nama_rek_vendor' => 'required|string',
+        // Wrap single vendor object in array if needed
+        $vendorsData = isset($request->vendors[0]) ? $request->vendors : [$request->vendors];
+    
+        $validator = Validator::make(['vendors' => $vendorsData], [
+            'vendors' => 'required|array',
+            'vendors.*.nama_vendor' => 'required|string',
+            'vendors.*.alamat_vendor' => 'required|string',
+            'vendors.*.nama_pj' => 'required|string',
+            'vendors.*.jabatan_pj' => 'required|string',
+            'vendors.*.npwp' => 'required|string',
+            'vendors.*.bank_vendor' => 'required|string',
+            'vendors.*.norek_vendor' => 'required|string',
+            'vendors.*.nama_rek_vendor' => 'required|string',
         ]);
     
-        if ($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
     
@@ -112,27 +114,45 @@ class VendorController extends Controller
         try {
             $formSession = $this->getOrCreateFormSession();
             
+            $vendors = collect($vendorsData);
+            
+            // Separate existing and new vendors
+            $existingVendors = $vendors->filter(fn($v) => isset($v['id']) && !empty($v['id']));
+            $newVendors = $vendors->filter(fn($v) => !isset($v['id']) || empty($v['id']));
+    
+            // Update existing vendors
+            foreach ($existingVendors as $vendorData) {
+                $vendor = Vendor::where('id', $vendorData['id'])
+                               ->where('form_session_id', $formSession->id)
+                               ->first();
+                
+                if ($vendor) {
+                    $vendor->update($vendorData);
+                }
+            }
+    
+            // Add new vendors
+            foreach ($newVendors as $vendorData) {
+                Vendor::create(array_merge($vendorData, [
+                    'form_session_id' => $formSession->id
+                ]));
+            }
+            
             // Update temp data
             $formSession->update([
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
-                    'vendor' => $request->all()
+                    'vendors' => $vendorsData
                 ])
             ]);
-
-            // Update vendor data
-            $vendor = $formSession->vendor;
-            if (!$vendor) {
-                throw new \Exception('Data vendor tidak ditemukan');
-            }
-            
-            $vendor->update($request->all());
             
             DB::commit();
+            
+            $updatedVendors = Vendor::where('form_session_id', $formSession->id)->get();
             
             return response()->json([
                 'message' => 'Data vendor berhasil diperbarui',
                 'data' => [
-                    'vendor' => $vendor,
+                    'vendors' => $updatedVendors,
                     'session' => [
                         'id' => $formSession->id,
                         'current_step' => $formSession->current_step
@@ -148,19 +168,66 @@ class VendorController extends Controller
         }
     }
 
+    public function deleteVendor(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $formSession = $this->getOrCreateFormSession();
+            
+            $vendor = Vendor::where('id', $id)
+                          ->where('form_session_id', $formSession->id)
+                          ->firstOrFail();
+    
+            $vendor->delete();
+    
+            // Update temp data di session
+            if (isset($formSession->temp_data['vendors']) && is_array($formSession->temp_data['vendors'])) {
+                $vendors = collect($formSession->temp_data['vendors'])
+                    ->filter(function($vendor) use ($id) {
+                        return isset($vendor['id']) && $vendor['id'] !== $id;
+                    })
+                    ->values()
+                    ->all();
+                
+                $tempData = $formSession->temp_data;
+                $tempData['vendors'] = $vendors;
+                
+                $formSession->update([
+                    'temp_data' => $tempData
+                ]);
+            }
+    
+            DB::commit();
+    
+            return response()->json([
+                'message' => 'Data vendor berhasil dihapus',
+                'data' => [
+                    'deleted_id' => $id
+                ]
+            ]);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat menghapus vendor',
+                'detail' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getVendorData()
     {
         try {
             $formSession = $this->getOrCreateFormSession();
-            $vendor = $formSession->vendor;
+            $vendors = Vendor::where('form_session_id', $formSession->id)->get();
             
             return response()->json([
                 'data' => [
-                    'vendor' => $vendor,
+                    'vendors' => $vendors,
                     'session' => [
                         'id' => $formSession->id,
                         'current_step' => $formSession->current_step,
-                        'temp_data' => $formSession->temp_data['vendor'] ?? null
+                        'temp_data' => $formSession->temp_data['vendors'] ?? null
                     ]
                 ]
             ]);

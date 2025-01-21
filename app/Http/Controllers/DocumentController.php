@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\FormSession;
 use App\Models\Official;
+use App\Models\Vendor;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -58,8 +59,6 @@ class DocumentController extends Controller
             'document.tanggal_selesai' => 'required|date',
             'document.nomor_pph1' => 'required|string',
             'document.tanggal_pph1' => 'required|date',
-            // 'document.nomor_pph2' => 'required|string',
-            // 'document.tanggal_pph2' => 'required|date',
             'document.nomor_ukn' => 'required|string',
             'document.tanggal_ukn' => 'required|date',
             'document.tanggal_undangan_ukn' => 'required|date',
@@ -89,12 +88,14 @@ class DocumentController extends Controller
             $formSession = $this->getOrCreateFormSession();
             
             // Cek apakah vendor sudah ada
-            $vendor = $formSession->vendor;
-            if (!$vendor) {
+            $vendors = Vendor::where('form_session_id', $formSession->id)->get();
+            if ($vendors->isEmpty()) {
                 return response()->json([
                     'error' => 'Harap isi data vendor terlebih dahulu'
                 ], 400);
             }
+
+
     
             // Cek apakah officials sudah ada
             $officials = [];
@@ -115,11 +116,14 @@ class DocumentController extends Controller
     
             // Simpan document
             $documentData = array_merge($request->input('document'), [
-                'vendor_id' => $vendor->id,
                 'form_session_id' => $formSession->id
             ]);
     
             $document = Document::create($documentData);
+
+            // Update document_id untuk semua vendor terkait
+            Vendor::where('form_session_id', $formSession->id)
+            ->update(['document_id' => $document->id]);
     
             // Attach officials ke document dengan tambahan form_session_id
             $pivotData = array_fill(0, count($officials), [
