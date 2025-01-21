@@ -191,8 +191,6 @@ class DocumentController extends Controller
             'document.tanggal_selesai' => 'required|date',
             'document.nomor_pph1' => 'required|string',
             'document.tanggal_pph1' => 'required|date',
-            // 'document.nomor_pph2' => 'required|string',
-            // 'document.tanggal_pph2' => 'required|date',
             'document.nomor_ukn' => 'required|string',
             'document.tanggal_ukn' => 'required|date',
             'document.tanggal_undangan_ukn' => 'required|date',

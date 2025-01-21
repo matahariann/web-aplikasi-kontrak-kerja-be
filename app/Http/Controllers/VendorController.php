@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Document;
 use App\Models\FormSession;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
@@ -114,6 +115,9 @@ class VendorController extends Controller
         try {
             $formSession = $this->getOrCreateFormSession();
             
+            // Cek apakah sudah ada document untuk session ini
+            $existingDocument = Document::where('form_session_id', $formSession->id)->first();
+            
             $vendors = collect($vendorsData);
             
             // Separate existing and new vendors
@@ -133,9 +137,12 @@ class VendorController extends Controller
     
             // Add new vendors
             foreach ($newVendors as $vendorData) {
-                Vendor::create(array_merge($vendorData, [
-                    'form_session_id' => $formSession->id
-                ]));
+                $newVendorData = array_merge($vendorData, [
+                    'form_session_id' => $formSession->id,
+                    'document_id' => $existingDocument ? $existingDocument->id : null // Tambahkan document_id jika ada
+                ]);
+                
+                Vendor::create($newVendorData);
             }
             
             // Update temp data
