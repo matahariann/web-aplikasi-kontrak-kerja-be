@@ -40,4 +40,35 @@ class UserController extends Controller
         // Mengembalikan respon sukses
         return response()->json(['message' => 'Logout berhasil'], 200);
     }
+
+    public function register(Request $request)
+    {
+    $validatedData = $request->validate([
+        'nip' => 'required|string|unique:users',
+        'nama' => 'required|string|max:255',
+        'email' => 'required|string|email|unique:users|max:255',
+        'no_telp' => 'required|string|max:20',
+        'alamat' => 'required|string',
+        'password' => 'required|string|min:8|confirmed',
+    ], [
+        'nip.unique' => 'NIP sudah terdaftar',
+        'email.unique' => 'Email sudah terdaftar',
+        'password.confirmed' => 'Konfirmasi password tidak sesuai',
+    ]);
+
+    $user = User::create([
+        'nip' => $validatedData['nip'],
+        'nama' => $validatedData['nama'],
+        'email' => $validatedData['email'],
+        'no_telp' => $validatedData['no_telp'],
+        'alamat' => $validatedData['alamat'],
+        'password' => Hash::make($validatedData['password']),
+    ]);
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+    
+    return $this->okResponse('Registrasi berhasil', [
+        'user' => array_merge($user->toArray(), ['token' => $token])
+    ]);
+    }
 }
