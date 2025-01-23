@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contract;
+use App\Models\Document;
 use App\Models\DocumentOfficial;
 use App\Models\FormSession;
 use Illuminate\Http\Request;
@@ -115,30 +116,35 @@ class ContractController extends Controller
             'contracts.*.nilai_kontral_awal' => 'required|numeric',
             'contracts.*.nilai_kontrak_akhir' => 'required|numeric',
         ]);
-
+    
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-
+    
         DB::beginTransaction();
-
+    
         try {
             $formSession = $this->getOrCreateFormSession();
             
-            // Get original contract to verify it exists and belongs to session
-            $originalContract = Contract::where('id', $id)
-                                    ->where('form_session_id', $formSession->id)
-                                    ->firstOrFail();
-
+            // Find the document associated with the first contract
+            $document = Document::whereHas('contracts', function($query) use ($id) {
+                $query->where('id', $id);
+            })->first();
+    
+            if (!$document) {
+                throw new \Exception('Dokumen tidak ditemukan');
+            }
+    
             $contracts = collect($request->input('contracts'));
             
             // Separate existing and new contracts
             $existingContracts = $contracts->filter(fn($c) => isset($c['id']) && is_string($c['id']) && !empty($c['id']));
             $newContracts = $contracts->filter(fn($c) => !isset($c['id']) || !is_string($c['id']) || empty($c['id']));
-
+    
             // Update existing contracts
             foreach ($existingContracts as $contractData) {
                 $contract = Contract::where('id', $contractData['id'])
+                                ->where('document_id', $document->id)
                                 ->where('form_session_id', $formSession->id)
                                 ->first();
                 
@@ -154,7 +160,7 @@ class ContractController extends Controller
                     ]);
                 }
             }
-
+    
             // Add new contracts
             foreach ($newContracts as $contractData) {
                 Contract::create([
@@ -165,25 +171,25 @@ class ContractController extends Controller
                     'nilai_perkiraan_sendiri' => $contractData['nilai_perkiraan_sendiri'],
                     'nilai_kontral_awal' => $contractData['nilai_kontral_awal'],
                     'nilai_kontrak_akhir' => $contractData['nilai_kontrak_akhir'],
-                    'document_id' => $originalContract->document_id, 
+                    'document_id' => $document->id, 
                     'form_session_id' => $formSession->id
                 ]);
             }
-
+    
             // Update temp data di session
             $formSession->update([
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
                     'contracts' => $request->input('contracts')
                 ])
             ]);
-
+    
             DB::commit();
-
+    
             // Get all updated contracts for response
             $updatedContracts = Contract::where('form_session_id', $formSession->id)
-                                        ->where('document_id', $originalContract->document_id)
+                                        ->where('document_id', $document->id)
                                         ->get();
-
+    
             return response()->json([
                 'message' => 'Data kontrak berhasil diperbarui',
                 'data' => [
@@ -194,7 +200,7 @@ class ContractController extends Controller
                     ]
                 ]
             ]);
-
+    
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -202,7 +208,7 @@ class ContractController extends Controller
                 'detail' => $e->getMessage()
             ], 500);
         }
-    } 
+    }
 
     public function deleteContract(Request $request, $id)
     {
