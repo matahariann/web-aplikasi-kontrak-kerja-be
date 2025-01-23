@@ -14,13 +14,16 @@ return new class extends Migration
     public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->string('nip')->primary();
+            $table->id(); // Add auto-incrementing primary key
+            $table->string('nip')->unique();
             $table->string('nama');
             $table->string('email')->unique();
             $table->string('no_telp');
             $table->string('alamat');
             $table->string('password');
-            $table->timestamp('email_verified_at')->nullable();
+            $table->string('verification_code')->nullable();
+            $table->timestamp('verification_code_expires_at')->nullable();
+            $table->boolean('is_verified')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });

@@ -18,9 +18,9 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $table = 'users';
-    protected $primaryKey = 'nip';
-    public $incrementing = false;
-    protected $keyType = 'string';
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+    protected $keyType = 'int';
     protected $fillable = [
         'nip',
         'nama',
@@ -28,6 +28,9 @@ class User extends Authenticatable
         'no_telp',
         'alamat',
         'password',
+        'is_verified',
+        'verification_code',
+        "verification_code_expires_at",
     ];
 
     /**

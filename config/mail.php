@@ -2,6 +2,10 @@
 
 return [
 
+    'from' => [
+        'address' => env('dzusunann29@gmail.com', 'dzusunann29@gmail.com'),
+        'name' => env('Ditjen Aptika Kominfo', 'Aplikasi Kontrak Kerja Ditjen Aptika'),
+    ],
     /*
     |--------------------------------------------------------------------------
     | Default Mailer
