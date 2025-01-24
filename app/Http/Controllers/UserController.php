@@ -89,7 +89,8 @@ class UserController extends Controller
     $token = $user->createToken('auth_token')->plainTextToken;
     
     return $this->okResponse('Registrasi berhasil, silakan verifikasi email', [
-        'user_id' => $user->id
+        'user_id' => $user->id,
+        'email' => $user->email,
     ]);
     }
 
