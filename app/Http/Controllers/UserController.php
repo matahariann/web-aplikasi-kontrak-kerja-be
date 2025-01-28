@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ResetPasswordMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -145,5 +147,72 @@ class UserController extends Controller
         Mail::to($user->email)->send(new VerificationCodeMail($verificationCode));
 
         return $this->okResponse('Kode verifikasi baru telah dikirim');
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email'
+        ]);
+    
+        $user = User::where('email', $request->email)->first();
+    
+        // Generate verification code
+        $verificationCode = sprintf("%06d", mt_rand(1, 999999));
+    
+        // Update user's verification details
+        $user->update([
+            'verification_code' => $verificationCode,
+            'verification_code_expires_at' => Carbon::now()->addMinutes(15)
+        ]);
+    
+        // Send reset password email
+        Mail::to($user->email)->send(new ResetPasswordMail($verificationCode));
+    
+        return $this->okResponse('Kode verifikasi telah dikirim ke email Anda', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+    $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'password' => 'required|string|min:8|confirmed',
+    ]);
+
+    $user = User::findOrFail($request->user_id);
+
+    $user->update([
+        'password' => Hash::make($request->password),
+        'verification_code' => null,
+        'verification_code_expires_at' => null
+    ]);
+
+    return $this->okResponse('Password berhasil diubah');
+    }
+
+    public function resendResetPasswordCode(Request $request)
+    {
+    $request->validate([
+        'email' => 'required|email|exists:users,email'
+    ]);
+
+    $user = User::where('email', $request->email)->first();
+
+    // Generate new verification code
+    $verificationCode = sprintf("%06d", mt_rand(1, 999999));
+
+    // Update user's verification details
+    $user->update([
+        'verification_code' => $verificationCode,
+        'verification_code_expires_at' => Carbon::now()->addMinutes(15)
+    ]);
+
+    // Send reset password verification email
+    Mail::to($user->email)->send(new ResetPasswordMail($verificationCode));
+
+    return $this->okResponse('Kode verifikasi baru telah dikirim');
     }
 }
