@@ -39,7 +39,8 @@ class FormSession extends Model
 
     public function officials()
     {
-        return $this->hasMany(Official::class, 'form_session_id', 'id');
+        return $this->belongsToMany(Official::class, 'official_form_sessions')
+                    ->withTimestamps();
     }
 
     public function document()

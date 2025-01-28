@@ -57,6 +57,7 @@ class Document extends Model
     public function officials()
     {
         return $this->belongsToMany(Official::class, 'documents_officials', 'document_id', 'official_id')
+                    ->withPivot('form_session_id')
                     ->withTimestamps();
     }
 

@@ -25,7 +25,7 @@ class Contract extends Model
 
     public function document()
     {
-        return $this->belongsTo(Document::class, 'document_id', 'document_id');
+        return $this->belongsTo(Document::class, 'document_id', 'id');
     }
 
     public function formSession()

@@ -25,8 +25,9 @@ class Official extends Model
                     ->withTimestamps();
     }
 
-    public function formSession()
+    public function formSessions()
     {
-        return $this->belongsTo(FormSession::class, 'form_session_id', 'id');
+        return $this->belongsToMany(FormSession::class, 'official_form_sessions')
+                    ->withTimestamps();
     }
 }

@@ -63,81 +63,65 @@ class OfficialController extends Controller
         DB::beginTransaction();
         try {
             $official = Official::findOrFail($id);
-            
-            // Log untuk debugging
-            Log::info('Updating official session', [
-                'official_id' => $id,
-                'form_session_id' => $request->form_session_id,
-                'official_data' => $official->toArray()
-            ]);
-    
-            // Cek apakah form_session_id valid
-            if (!$request->form_session_id) {
-                throw new \Exception('Form session ID tidak valid');
-            }
-            
-            // Cek apakah form session exists
             $formSession = FormSession::findOrFail($request->form_session_id);
             
-            // Cari dan simpan official lama di session yang dituju
-            $oldOfficial = Official::where('form_session_id', $request->form_session_id)
-                   ->where('jabatan', $official->jabatan)
-                   ->where('id', '!=', $id)
-                   ->first();
+            // Dapatkan semua officials dari periode yang dipilih
+            $newOfficials = Official::where('periode_jabatan', $official->periode_jabatan)->get();
     
-            Log::info('Old official found', [
-                'old_official' => $oldOfficial ? $oldOfficial->toArray() : null
-            ]);
+            // Dapatkan document yang terkait dengan form session ini
+            $document = Document::where('form_session_id', $formSession->id)->first();
     
-            if ($oldOfficial) {
-                // Update form_session_id menjadi null
-                $oldOfficial->update(['form_session_id' => null]);
+            if ($document) {
+                // Hapus semua relasi officials lama untuk document ini
+                DB::table('documents_officials')
+                    ->where('document_id', $document->id)
+                    ->where('form_session_id', $formSession->id)
+                    ->delete();
     
-                // Cari document untuk session ini
-                $document = Document::where('form_session_id', $request->form_session_id)->first();
-                
-                Log::info('Document found', [
-                    'document' => $document ? $document->toArray() : null
-                ]);
+                // Tambahkan relasi dengan officials baru
+                $documentsOfficialsData = $newOfficials->map(function ($official) use ($document, $formSession) {
+                    return [
+                        'document_id' => $document->id,
+                        'official_id' => $official->id,
+                        'form_session_id' => $formSession->id,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+                })->toArray();
     
-                if ($document) {
-                    // Hapus relasi lama di pivot table
-                    $deleted = DB::table('documents_officials')
-                        ->where('official_id', $oldOfficial->id)
-                        ->where('nomor_kontrak', $document->nomor_kontrak)
-                        ->delete();
-    
-                    Log::info('Deleted old pivot records', ['count' => $deleted]);
-    
-                    // Cek apakah relasi sudah ada sebelum insert
-                    $existingPivot = DB::table('documents_officials')
-                        ->where('official_id', $id)
-                        ->where('nomor_kontrak', $document->nomor_kontrak)
-                        ->exists();
-    
-                    if (!$existingPivot) {
-                        // Tambah relasi baru
-                        DB::table('documents_officials')->insert([
-                            'official_id' => $id,
-                            'nomor_kontrak' => $document->nomor_kontrak,
-                            'form_session_id' => $request->form_session_id,
-                            'created_at' => now(),
-                            'updated_at' => now()
-                        ]);
-                    }
-                }
+                DB::table('documents_officials')->insert($documentsOfficialsData);
             }
+    
+            // Hapus relasi officials lama dengan form session
+            DB::table('official_form_sessions')
+                ->where('form_session_id', $formSession->id)
+                ->delete();
+    
+            // Tambah relasi officials baru dengan form session
+            $officialFormSessionData = $newOfficials->map(function ($official) use ($formSession) {
+                return [
+                    'official_id' => $official->id,
+                    'form_session_id' => $formSession->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
+            })->toArray();
+    
+            DB::table('official_form_sessions')->insert($officialFormSessionData);
             
-            // Update form_session_id official yang dipilih
-            $official->update([
-                'form_session_id' => $request->form_session_id
-            ]);
+            if ($request->has('temp_data')) {
+                $formSession->update([
+                    'temp_data' => array_merge($formSession->temp_data ?? [], [
+                        'official' => $request->temp_data
+                    ])
+                ]);
+            }
             
             DB::commit();
             
             return response()->json([
-                'message' => 'Form session ID dan relasi dokumen berhasil diperbarui',
-                'data' => $official
+                'message' => 'Form session dan relasi official berhasil diperbarui',
+                'data' => $newOfficials
             ]);
             
         } catch (\Exception $e) {
@@ -148,15 +132,14 @@ class OfficialController extends Controller
             ]);
             
             return response()->json([
-                'error' => 'Gagal memperbarui form session ID dan relasi dokumen',
+                'error' => 'Gagal memperbarui form session dan relasi official',
                 'detail' => $e->getMessage()
             ], 500);
         }
     }
-    
+
     public function addOfficial(Request $request)
     {
-        // Validasi request harus berupa array dari officials
         $validator = Validator::make($request->all(), [
             'officials' => 'required|array|min:2',
             'officials.*.nip' => 'required|string',
@@ -185,31 +168,28 @@ class OfficialController extends Controller
 
             $officials = collect($request->officials);
             
-            // Cek duplikasi NIP di antara officials yang akan disimpan
+            // Cek duplikasi NIP
             $nips = $officials->pluck('nip');
             if ($nips->count() !== $nips->unique()->count()) {
-                DB::rollBack();
                 return response()->json([
                     'error' => 'Terdapat NIP yang sama antar pejabat'
                 ], 400);
             }
 
-            // Cek duplikasi NIP dan periode untuk setiap official
+            // Cek duplikasi NIP dan periode
             foreach ($officials as $officialData) {
                 $exists = Official::where('nip', $officialData['nip'])
                                 ->where('periode_jabatan', $officialData['periode_jabatan'])
                                 ->exists();
                 if ($exists) {
-                    DB::rollBack();
                     return response()->json([
                         'error' => "Kombinasi NIP {$officialData['nip']} dan Periode Jabatan sudah ada"
                     ], 400);
                 }
             }
 
-            // Hapus semua official lama dalam session ini
-            Official::where('form_session_id', $formSession->id)
-                   ->update(['form_session_id' => null]);
+            // Hapus relasi official lama dari session ini
+            $formSession->officials()->detach();
 
             // Simpan semua official baru
             $savedOfficials = collect();
@@ -219,10 +199,27 @@ class OfficialController extends Controller
                     'nama' => $officialData['nama'],
                     'jabatan' => $officialData['jabatan'],
                     'periode_jabatan' => $officialData['periode_jabatan'],
-                    'surat_keputusan' => $officialData['surat_keputusan'] ?? null,
-                    'form_session_id' => $formSession->id
+                    'surat_keputusan' => $officialData['surat_keputusan'] ?? null
                 ]);
+                
+                // Tambahkan relasi ke form session melalui pivot
+                $formSession->officials()->attach($official->id);
+                
                 $savedOfficials->push($official);
+            }
+
+            // Update documents_officials jika sudah ada document
+            $document = Document::where('form_session_id', $formSession->id)->first();
+            if ($document) {
+                // Hapus relasi lama
+                $document->officials()->detach();
+                
+                // Tambah relasi baru
+                foreach ($savedOfficials as $official) {
+                    $document->officials()->attach($official->id, [
+                        'form_session_id' => $formSession->id
+                    ]);
+                }
             }
 
             // Update session data
@@ -256,73 +253,83 @@ class OfficialController extends Controller
 
     public function updateOfficial(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'nip' => 'required|string',
-            'nama' => 'required|string',
-            'jabatan' => 'required|string',
-            'periode_jabatan' => 'required|string',
-            'surat_keputusan' => 'nullable|string', 
-        ]);
-    
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 400);
-        }
-    
-        DB::beginTransaction();
-    
-        try {
-            $formSession = $this->getOrCreateFormSession();
-            $official = Official::findOrFail($id);
+    $validator = Validator::make($request->all(), [
+        'nip' => 'required|string',
+        'nama' => 'required|string',
+        'jabatan' => 'required|string',
+        'periode_jabatan' => 'required|string',
+        'surat_keputusan' => 'nullable|string',
+    ]);
 
-            // Validasi official belongs to current session
-            if ($official->form_session_id !== $formSession->id) {
+    if ($validator->fails()) {
+        return response()->json($validator->errors(), 400);
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $formSession = $this->getOrCreateFormSession();
+        $official = Official::findOrFail($id);
+
+        // Cek apakah official terkait dengan session ini melalui pivot
+        $isOfficialInSession = $formSession->officials()
+            ->where('officials.id', $id)
+            ->exists();
+
+        if (!$isOfficialInSession) {
+            return response()->json([
+                'error' => 'Data pejabat tidak ditemukan dalam session ini'
+            ], 404);
+        }
+
+        // Cek duplikasi NIP dan periode
+        if (($official->nip !== $request->nip) || ($official->periode_jabatan !== $request->periode_jabatan)) {
+            $exists = Official::where('nip', $request->nip)
+                            ->where('periode_jabatan', $request->periode_jabatan)
+                            ->where('id', '!=', $id)
+                            ->exists();
+            if ($exists) {
                 return response()->json([
-                    'error' => 'Data pejabat tidak ditemukan dalam session ini'
-                ], 404);
+                    'error' => 'Kombinasi NIP dan Periode Jabatan sudah ada'
+                ], 400);
             }
-    
-            // Cek duplikasi NIP dan periode
-            if (($official->nip !== $request->nip) || ($official->periode_jabatan !== $request->periode_jabatan)) {
-                $exists = Official::where('nip', $request->nip)
-                                ->where('periode_jabatan', $request->periode_jabatan)
-                                ->exists();
-                if ($exists) {
-                    return response()->json([
-                        'error' => 'Kombinasi NIP dan Periode Jabatan sudah ada'
-                    ], 400);
-                }
-            }
-
-            // Update official data
-            $official->update($request->all());
-
-            // Update temp data in session
-            $formSession->update([
-                'temp_data' => array_merge($formSession->temp_data ?? [], [
-                    'official' => $request->all()
-                ])
-            ]);
-    
-            DB::commit();
-    
-            return response()->json([
-                'message' => 'Data pejabat berhasil diperbarui',
-                'data' => [
-                    'official' => $official,
-                    'session' => [
-                        'id' => $formSession->id,
-                        'current_step' => $formSession->current_step
-                    ]
-                ]
-            ]);
-    
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'error' => 'Terjadi kesalahan saat memperbarui pejabat',
-                'detail' => $e->getMessage()
-            ], 500);
         }
+
+        // Update official data
+        $official->update($request->all());
+
+        // Update temp data in session
+        $formSession->update([
+            'temp_data' => array_merge($formSession->temp_data ?? [], [
+                'official' => $request->all()
+            ])
+        ]);
+
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Data pejabat berhasil diperbarui',
+            'data' => [
+                'official' => $official,
+                'session' => [
+                    'id' => $formSession->id,
+                    'current_step' => $formSession->current_step
+                ]
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error in updateOfficial', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'error' => 'Terjadi kesalahan saat memperbarui pejabat',
+            'detail' => $e->getMessage()
+        ], 500);
+    }
     }
 
     public function getOfficialData()

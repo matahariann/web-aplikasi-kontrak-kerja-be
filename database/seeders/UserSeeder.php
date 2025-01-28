@@ -23,15 +23,7 @@ class UserSeeder extends Seeder
             'no_telp' => '085641626353',
             'alamat' => 'Jl. Raya Ciputat Parung No. 1',
             'password' => Hash::make('password'),
-        ]);
-        
-        User::create([
-            'nip' => '198305152009041003',
-            'nama' => 'Budi',
-            'email' => 'budi@gmail.com',
-            'no_telp' => '081234567890',
-            'alamat' => 'Jl. Merdeka No. 2',
-            'password' => Hash::make('password'),
+            'is_verified' => true,
         ]);
     }
 }

@@ -16,10 +16,10 @@ class DocumentOfficial extends Model
         'document_id',
         'form_session_id',
     ];
-
+    
     public function document()
     {
-        return $this->belongsTo(Document::class, 'document_id', 'document_id');
+        return $this->belongsTo(Document::class, 'document_id', 'id'); 
     }
 
     public function official()

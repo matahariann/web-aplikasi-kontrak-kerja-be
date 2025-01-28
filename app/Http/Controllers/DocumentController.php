@@ -83,31 +83,30 @@ class DocumentController extends Controller
         }
     
         DB::beginTransaction();
-    
+
         try {
             $formSession = $this->getOrCreateFormSession();
             
-            // Cek apakah vendor sudah ada
+            // Cek vendor tetap sama
             $vendors = Vendor::where('form_session_id', $formSession->id)->get();
             if ($vendors->isEmpty()) {
                 return response()->json([
                     'error' => 'Harap isi data vendor terlebih dahulu'
                 ], 400);
             }
-
-
     
-            // Cek apakah officials sudah ada
+            // Cek officials melalui pivot table
             $officials = [];
             foreach ($request->input('officials') as $officialData) {
-                $official = Official::where('form_session_id', $formSession->id)
-                                ->where('nip', $officialData['nip'])
-                                ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                ->first();
+                $official = Official::whereHas('formSessions', function($query) use ($formSession, $officialData) {
+                    $query->where('form_sessions.id', $formSession->id)
+                          ->where('officials.nip', $officialData['nip'])
+                          ->where('officials.periode_jabatan', $officialData['periode_jabatan']);
+                })->first();
     
                 if (!$official) {
                     return response()->json([
-                        'error' => 'Official dengan NIP ' . $officialData['nip'] . ' belum ditambahkan'
+                        'error' => 'Official dengan NIP ' . $officialData['nip'] . ' tidak terkait dengan session ini'
                     ], 400);
                 }
                 
@@ -120,12 +119,12 @@ class DocumentController extends Controller
             ]);
     
             $document = Document::create($documentData);
-
-            // Update document_id untuk semua vendor terkait
-            Vendor::where('form_session_id', $formSession->id)
-            ->update(['document_id' => $document->id]);
     
-            // Attach officials ke document dengan tambahan form_session_id
+            // Update vendor
+            Vendor::where('form_session_id', $formSession->id)
+                  ->update(['document_id' => $document->id]);
+    
+            // Attach officials dengan form_session_id
             $pivotData = array_fill(0, count($officials), [
                 'form_session_id' => $formSession->id,
                 'created_at' => now(),
@@ -134,7 +133,7 @@ class DocumentController extends Controller
             
             $document->officials()->attach(array_combine($officials, $pivotData));
     
-            // Update session data
+            // Update session seperti biasa
             $formSession->update([
                 'current_step' => 'contract',
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
@@ -145,8 +144,10 @@ class DocumentController extends Controller
     
             DB::commit();
     
-            // Load relasi untuk response
-            $document->load(['vendor', 'officials']);
+            // Load relasi dengan kondisi session
+            $document->load(['vendor', 'officials' => function($query) use ($formSession) {
+                $query->wherePivot('form_session_id', $formSession->id);
+            }]);
     
             return response()->json([
                 'message' => 'Data dokumen berhasil disimpan',
@@ -221,32 +222,35 @@ class DocumentController extends Controller
             $document = Document::where('id', $id)
                               ->where('form_session_id', $formSession->id)
                               ->firstOrFail();
-
+    
             // Update document data
             $documentData = $request->input('document');
             $document->update($documentData);
-
-            // Update officials
+    
+            // Update officials dengan memperhatikan session
             $officials = [];
             foreach ($request->input('officials') as $officialData) {
-                $official = Official::where('form_session_id', $formSession->id)
-                                ->where('nip', $officialData['nip'])
-                                ->where('periode_jabatan', $officialData['periode_jabatan'])
-                                ->first();
-
+                $official = Official::whereHas('formSessions', function($query) use ($formSession, $officialData) {
+                    $query->where('form_sessions.id', $formSession->id)
+                          ->where('officials.nip', $officialData['nip'])
+                          ->where('officials.periode_jabatan', $officialData['periode_jabatan']);
+                })->first();
+    
                 if ($official) {
                     $officials[] = $official->id;
                 }
             }
-
+    
+            // Sync officials dengan mempertahankan form_session_id
             $pivotData = array_fill(0, count($officials), [
                 'form_session_id' => $formSession->id,
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
             
-            $document->officials()->sync(array_combine($officials, $pivotData));
-
+            $document->officials()->wherePivot('form_session_id', $formSession->id)->detach();
+            $document->officials()->attach(array_combine($officials, $pivotData));
+    
             // Update session data
             $formSession->update([
                 'temp_data' => array_merge($formSession->temp_data ?? [], [
@@ -254,11 +258,14 @@ class DocumentController extends Controller
                     'officials' => $request->input('officials')
                 ])
             ]);
-
+    
             DB::commit();
-
-            $document->load(['vendor', 'officials']);
-
+    
+            // Load relasi dengan kondisi session
+            $document->load(['vendor', 'officials' => function($query) use ($formSession) {
+                $query->wherePivot('form_session_id', $formSession->id);
+            }]);
+    
             return response()->json([
                 'message' => 'Data dokumen berhasil diperbarui',
                 'data' => [
@@ -269,7 +276,7 @@ class DocumentController extends Controller
                     ]
                 ]
             ]);
-
+    
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
