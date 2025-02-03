@@ -20,8 +20,6 @@ class UserSeeder extends Seeder
             'nip' => '198102052008031002',
             'nama' => 'Sunan',
             'email' => 'sunan@gmail.com',
-            'no_telp' => '085641626353',
-            'alamat' => 'Jl. Raya Ciputat Parung No. 1',
             'password' => Hash::make('password'),
             'is_verified' => true,
         ]);

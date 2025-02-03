@@ -61,8 +61,6 @@ class UserController extends Controller
         'nip' => 'required|string|unique:users',
         'nama' => 'required|string|max:255',
         'email' => 'required|string|email|unique:users|max:255',
-        'no_telp' => 'required|string|max:20',
-        'alamat' => 'required|string',
         'password' => 'required|string|min:8|confirmed',
     ], [
         'nip.unique' => 'NIP sudah terdaftar',
@@ -77,8 +75,6 @@ class UserController extends Controller
         'nip' => $validatedData['nip'],
         'nama' => $validatedData['nama'],
         'email' => $validatedData['email'],
-        'no_telp' => $validatedData['no_telp'],
-        'alamat' => $validatedData['alamat'],
         'password' => Hash::make($validatedData['password']),
         'verification_code' => $verificationCode,
         'verification_code_expires_at' => Carbon::now()->addMinutes(15),

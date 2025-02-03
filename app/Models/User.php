@@ -25,8 +25,6 @@ class User extends Authenticatable
         'nip',
         'nama',
         'email',
-        'no_telp',
-        'alamat',
         'password',
         'is_verified',
         'verification_code',

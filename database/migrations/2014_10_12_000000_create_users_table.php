@@ -18,8 +18,6 @@ return new class extends Migration
             $table->string('nip')->unique();
             $table->string('nama');
             $table->string('email')->unique();
-            $table->string('no_telp');
-            $table->string('alamat');
             $table->string('password');
             $table->string('verification_code')->nullable();
             $table->timestamp('verification_code_expires_at')->nullable();
