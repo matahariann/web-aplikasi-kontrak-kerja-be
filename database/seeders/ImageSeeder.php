@@ -23,8 +23,8 @@ class ImageSeeder extends Seeder
         }
 
         // Copy file gambar dari source ke storage
-        $sourceImage = public_path('images/logo_kominfo.png');
-        $targetImage = 'images/logo_kominfo.png';
+        $sourceImage = public_path('images/logo_komdigi.png');
+        $targetImage = 'images/logo_komdigi.png';
         
         if (FileFacade::exists($sourceImage)) {
             FileFacade::copy($sourceImage, storage_path('app/public/' . $targetImage));
@@ -32,7 +32,7 @@ class ImageSeeder extends Seeder
 
         // Buat record di database
         Images::create([
-            'name' => 'Logo Kominfo',
+            'name' => 'Logo Komdigi',
             'image' => $targetImage,
         ]);
     }
