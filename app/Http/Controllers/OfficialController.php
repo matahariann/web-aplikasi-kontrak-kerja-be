@@ -336,11 +336,11 @@ class OfficialController extends Controller
     {
         try {
             $formSession = $this->getOrCreateFormSession();
-            $officials = $formSession->officials; // Menggunakan relasi hasMany
+            $officials = $formSession->officials;
             
             return response()->json([
                 'data' => [
-                    'officials' => $officials, // Mengembalikan array of officials
+                    'officials' => $officials,
                     'session' => [
                         'id' => $formSession->id,
                         'current_step' => $formSession->current_step,

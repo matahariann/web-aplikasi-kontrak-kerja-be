@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('officials', function (Blueprint $table) {
-            $table->id(); // Surrogate primary key
+            $table->id();
             $table->string('nip');
             $table->string('nama');
             $table->string('jabatan');

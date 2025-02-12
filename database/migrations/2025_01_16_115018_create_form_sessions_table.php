@@ -10,9 +10,9 @@ return new class extends Migration
     {
         Schema::create('form_sessions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('nip'); // Foreign key ke users
-            $table->string('current_step')->default('vendor'); // Untuk tracking step form
-            $table->json('temp_data')->nullable(); // Untuk menyimpan data sementara
+            $table->string('nip'); 
+            $table->string('current_step')->default('vendor'); 
+            $table->json('temp_data')->nullable(); 
             $table->boolean('is_completed')->default(false);
             $table->timestamps();
 

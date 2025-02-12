@@ -36,7 +36,6 @@ class EmployeeController extends Controller
     public function getData()
     {
         try {
-            // Query utama dengan eager loading yang dioptimasi
             $documents = Document::query()
                 ->select([
                     'documents.id',
@@ -44,11 +43,10 @@ class EmployeeController extends Controller
                     'documents.tanggal_kontrak',
                     'documents.paket_pekerjaan',
                     'documents.tahun_anggaran'
-                    // Hapus vendor_id karena sekarang one-to-many
                 ])
                 ->with([
-                    'vendor' => function ($query) {  // Ubah ke vendor (plural)
-                        $query->select('id', 'nama_vendor', 'document_id'); // Tambah document_id
+                    'vendor' => function ($query) { 
+                        $query->select('id', 'nama_vendor', 'document_id'); 
                     },
                     'officials' => function ($query) {
                         $query->select('officials.id', 'nip', 'nama', 'jabatan', 'periode_jabatan');
@@ -89,10 +87,10 @@ class EmployeeController extends Controller
         try {
             $document = Document::query()
                 ->with([
-                    'vendor' => function ($query) {  // Ubah ke vendor (plural)
+                    'vendor' => function ($query) { 
                         $query->select(
                             'id', 
-                            'document_id', // Tambah document_id
+                            'document_id', 
                             'nama_vendor', 
                             'alamat_vendor',
                             'nama_pj',
@@ -134,7 +132,7 @@ class EmployeeController extends Controller
                 'status' => 'success',
                 'data' => [
                     'document' => $document,
-                    'vendors' => $document->vendor, // Ubah ke plural untuk konsistensi
+                    'vendors' => $document->vendor, 
                     'officials' => $document->officials,
                     'contracts' => $document->contracts
                 ],

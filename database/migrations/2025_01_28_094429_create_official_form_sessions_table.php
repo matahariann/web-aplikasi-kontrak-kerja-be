@@ -15,7 +15,6 @@ return new class extends Migration
             $table->foreign('form_session_id')->references('id')->on('form_sessions')->onDelete('cascade');
             $table->timestamps();
 
-            // Mencegah duplicate entries
             $table->unique(['official_id', 'form_session_id']);
         });
     }
