@@ -4,6 +4,7 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentOfficialController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\FormSessionController;
 use App\Http\Controllers\OfficialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
@@ -68,6 +69,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/update-contract/{id}', [ContractController::class, 'updateContract']);
     Route::delete('/delete-contract/{id}', [ContractController::class, 'deleteContract']);
     Route::get('/get-contract', [ContractController::class, 'getContractData']);
-    Route::post('/complete-form', [ContractController::class, 'completeForm']);
-    Route::post('/clear-form', [ContractController::class, 'clearFormSession']);
+
+    // Form routes
+    Route::post('/complete-form', [FormSessionController::class, 'completeForm']);
+    Route::post('/clear-form', [FormSessionController::class, 'clearFormSession']);
 });
