@@ -40,9 +40,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Employee routes
     Route::get('/employee/authenticated', [EmployeeController::class, 'getAuthenticatedEmployee']);
-    Route::get('/showImage/{id}', [EmployeeController::class, 'showImage']);
-    Route::get('/get-data', [EmployeeController::class, 'getData']);
-    Route::get('/get-data-detail/{nomorKontrak}', [EmployeeController::class, 'getDataDetail']);
 
     // Vendor routes
     Route::post('/add-vendor', [VendorController::class, 'addVendor']);
@@ -63,6 +60,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/add-document', [DocumentController::class, 'addDocument']);
     Route::put('/update-document/{id}', [DocumentController::class, 'updateDocument']);
     Route::get('/get-document', [DocumentController::class, 'getDocumentData']);
+    Route::get('/get-data', [DocumentController::class, 'getData']);
+    Route::get('/get-data-detail/{nomorKontrak}', [DocumentController::class, 'getDataDetail']);
+    Route::get('/showImage/{id}', [DocumentController::class, 'showImage']);
 
     //Contract routes
     Route::post('/add-contract', [ContractController::class, 'addContract']);
