@@ -5,6 +5,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentOfficialController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FormSessionController;
+use App\Http\Controllers\ImageController;
 use App\Http\Controllers\OfficialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
@@ -60,7 +61,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/get-document', [DocumentController::class, 'getDocumentData']);
     Route::get('/get-data', [DocumentController::class, 'getData']);
     Route::get('/get-data-detail/{nomorKontrak}', [DocumentController::class, 'getDataDetail']);
-    Route::get('/showImage/{id}', [DocumentController::class, 'showImage']);
 
     //Contract routes
     Route::post('/add-contract', [ContractController::class, 'addContract']);
@@ -73,4 +73,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/clear-form', [FormSessionController::class, 'clearFormSession']);
     Route::put('/update-session/{id}', [FormSessionController::class, 'updateSession']);
     Route::put('/update-official-session/{id}', [FormSessionController::class, 'updateOfficialSession']);
+
+    // Image routes
+    Route::get('/showImage/{id}', [ImageController::class, 'showImage']);
 });
