@@ -152,7 +152,7 @@ class VendorController extends Controller
         }
     }
 
-    public function deleteVendor(Request $request, $id)
+    public function deleteVendor($id)
     {
         DB::beginTransaction();
         try {

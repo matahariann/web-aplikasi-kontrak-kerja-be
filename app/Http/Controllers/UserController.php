@@ -20,6 +20,7 @@ class UserController extends Controller
             'data' => $data,
         ], 200);
     }
+    
     public function login(Request $request)
     {
         $loginData = $request->validate([
