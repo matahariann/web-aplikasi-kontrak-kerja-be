@@ -5,37 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Contract;
 use App\Models\Document;
 use App\Models\DocumentOfficial;
-use App\Models\FormSession;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use App\Http\Controllers\FormSessionController;
 
 class ContractController extends Controller
 {
-    private function getOrCreateFormSession()
-    {
-        $user = Auth::user();
-        
-        // Cari session aktif
-        $activeSession = $user->formSessions()
-            ->where('is_completed', false)
-            ->latest()
-            ->first();
-        
-        if (!$activeSession) {
-            // Buat session baru jika tidak ada
-            $activeSession = FormSession::create([
-                'id' => Str::uuid(),
-                'nip' => $user->nip,
-                'current_step' => 'vendor',
-                'is_completed' => false
-            ]);
-        }
-        
-        return $activeSession;
-    }
     public function addContract(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -56,7 +32,8 @@ class ContractController extends Controller
         DB::beginTransaction();
     
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Cek apakah document sudah ada
             $document = $formSession->document;
@@ -124,7 +101,8 @@ class ContractController extends Controller
         DB::beginTransaction();
     
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Find the document associated with the first contract
             $document = Document::whereHas('contracts', function($query) use ($id) {
@@ -214,7 +192,8 @@ class ContractController extends Controller
     {
         DB::beginTransaction();
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             $contract = Contract::where('id', $id)
                               ->where('form_session_id', $formSession->id)
@@ -259,7 +238,8 @@ class ContractController extends Controller
     public function getContractData()
     {
     try {
-        $formSession = $this->getOrCreateFormSession();
+        $formSessionController = new FormSessionController();
+        $formSession = $formSessionController->getOrCreateFormSession();
         $contracts = Contract::where('form_session_id', $formSession->id)->get();
         
         return response()->json([
@@ -283,7 +263,8 @@ class ContractController extends Controller
     public function completeForm(Request $request)
     {
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Validasi semua data sudah terisi
             if (!$formSession->vendor || !$formSession->officials->count() || 
@@ -317,7 +298,8 @@ class ContractController extends Controller
     public function clearFormSession()
     {
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             if ($formSession) {
                 DB::beginTransaction();

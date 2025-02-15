@@ -3,39 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
-use App\Models\FormSession;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use App\Http\Controllers\FormSessionController;
 
 class VendorController extends Controller
 {
-    private function getOrCreateFormSession()
-    {
-        $user = Auth::user();
-        
-        // Cari session aktif
-        $activeSession = $user->formSessions()
-            ->where('is_completed', false)
-            ->latest()
-            ->first();
-        
-        if (!$activeSession) {
-            // Buat session baru jika tidak ada
-            $activeSession = FormSession::create([
-                'id' => Str::uuid(),
-                'nip' => $user->nip,
-                'current_step' => 'vendor',
-                'is_completed' => false
-            ]);
-        }
-        
-        return $activeSession;
-    }
-
     public function addVendor(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -57,7 +32,8 @@ class VendorController extends Controller
         DB::beginTransaction();
     
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             $vendor = Vendor::create(array_merge($request->input('vendors'), [
                 'form_session_id' => $formSession->id
@@ -113,7 +89,8 @@ class VendorController extends Controller
         DB::beginTransaction();
     
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Cek apakah sudah ada document untuk session ini
             $existingDocument = Document::where('form_session_id', $formSession->id)->first();
@@ -179,7 +156,8 @@ class VendorController extends Controller
     {
         DB::beginTransaction();
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             $vendor = Vendor::where('id', $id)
                           ->where('form_session_id', $formSession->id)
@@ -225,7 +203,8 @@ class VendorController extends Controller
     public function getVendorData()
     {
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             $vendors = Vendor::where('form_session_id', $formSession->id)->get();
             
             return response()->json([

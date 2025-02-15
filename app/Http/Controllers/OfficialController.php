@@ -6,37 +6,13 @@ use App\Models\Document;
 use App\Models\FormSession;
 use App\Models\Official;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use App\Http\Controllers\FormSessionController;
 
 class OfficialController extends Controller
 {
-    private function getOrCreateFormSession()
-    {
-        $user = Auth::user();
-        
-        // Cari session aktif
-        $activeSession = $user->formSessions()
-            ->where('is_completed', false)
-            ->latest()
-            ->first();
-        
-        if (!$activeSession) {
-            // Buat session baru jika tidak ada
-            $activeSession = FormSession::create([
-                'id' => Str::uuid(),
-                'nip' => $user->nip,
-                'current_step' => 'vendor',
-                'is_completed' => false
-            ]);
-        }
-        
-        return $activeSession;
-    }
-
     public function updateSession(Request $request, $id)
     {
     try {
@@ -156,7 +132,8 @@ class OfficialController extends Controller
         DB::beginTransaction();
 
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Cek apakah ada vendor untuk session ini
             $vendor = $formSession->vendor;
@@ -268,7 +245,8 @@ class OfficialController extends Controller
     DB::beginTransaction();
 
     try {
-        $formSession = $this->getOrCreateFormSession();
+        $formSessionController = new FormSessionController();
+        $formSession = $formSessionController->getOrCreateFormSession();
         $official = Official::findOrFail($id);
 
         // Cek apakah official terkait dengan session ini melalui pivot
@@ -335,7 +313,8 @@ class OfficialController extends Controller
     public function getOfficialData()
     {
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             $officials = $formSession->officials;
             
             return response()->json([

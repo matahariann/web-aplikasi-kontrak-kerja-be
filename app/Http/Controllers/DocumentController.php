@@ -3,43 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
-use App\Models\FormSession;
 use App\Models\Official;
 use App\Models\Vendor;
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule as ValidationRule;
+use App\Http\Controllers\FormSessionController;
 
 class DocumentController extends Controller
 {
-    private function getOrCreateFormSession()
-    {
-        $user = Auth::user();
-        
-        // Cari session aktif
-        $activeSession = $user->formSessions()
-            ->where('is_completed', false)
-            ->latest()
-            ->first();
-        
-        if (!$activeSession) {
-            // Buat session baru jika tidak ada
-            $activeSession = FormSession::create([
-                'id' => Str::uuid(),
-                'nip' => $user->nip,
-                'current_step' => 'vendor',
-                'is_completed' => false
-            ]);
-        }
-        
-        return $activeSession;
-    }
-    
     public function addDocument(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -85,7 +58,8 @@ class DocumentController extends Controller
         DB::beginTransaction();
 
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             
             // Cek vendor tetap sama
             $vendors = Vendor::where('form_session_id', $formSession->id)->get();
@@ -218,7 +192,8 @@ class DocumentController extends Controller
         DB::beginTransaction();
 
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             $document = Document::where('id', $id)
                               ->where('form_session_id', $formSession->id)
                               ->firstOrFail();
@@ -290,7 +265,8 @@ class DocumentController extends Controller
     public function getDocumentData()
     {
         try {
-            $formSession = $this->getOrCreateFormSession();
+            $formSessionController = new FormSessionController();
+            $formSession = $formSessionController->getOrCreateFormSession();
             $document = Document::where('form_session_id', $formSession->id)->first();
             
             return response()->json([

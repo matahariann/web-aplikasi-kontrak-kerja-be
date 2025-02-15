@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('jabatan');
             $table->string('periode_jabatan');
             $table->string('surat_keputusan')->nullable();
-            $table->uuid('form_session_id')->nullable();
+            // $table->uuid('form_session_id')->nullable();
             $table->timestamps();
 
             $table->unique(['nip', 'periode_jabatan']);

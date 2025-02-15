@@ -16,7 +16,7 @@ class Official extends Model
         'jabatan',
         'periode_jabatan',
         'surat_keputusan',
-        'form_session_id',
+        // 'form_session_id',
     ];
 
     public function documents()
